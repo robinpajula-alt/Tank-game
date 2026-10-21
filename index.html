@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro Tankimäng (Battle City stiilis)</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <div id="ui">
+            <span>Punktid: <span id="score">0</span></span>
+            <span>Elud: <span id="lives">3</span></span>
+        </div>
+        <!-- 600x600 = 15x15 ruudustik (iga ruut 40x40 pikslit) -->
+        <canvas id="gameCanvas" width="600" height="600"></canvas>
+        <div id="gameOverScreen" class="hidden">
+            <h2 id="gameOverText">MÄNG LÄBI</h2>
+            <p>Sinu skoor: <span id="finalScore">0</span></p>
+            <button id="restartBtn">Mängi uuesti</button>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
