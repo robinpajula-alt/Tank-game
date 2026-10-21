@@ -1,95 +1,50 @@
-
 body {
     margin: 0;
-    padding: 0;
-    background-color: #222;
-    color: white;
-    font-family: 'Courier New', Courier, monospace;
+    overflow: hidden; /* Ei lase lehel kerida */
+    background-color: #111;
     display: flex;
     justify-content: center;
     align-items: center;
     height: 100vh;
+    font-family: 'Courier New', Courier, monospace;
 }
 
 #game-container {
     position: relative;
-    border: 4px solid #555;
+    height: 100vh;       /* Võtab kogu brauseri akna kõrguse */
+    aspect-ratio: 1 / 1; /* Hoiab kasti ideaalselt ruudukujulisena! */
     background-color: #000;
 }
 
+/* Punktide ja elude kast mängu peal */
 #ui {
     position: absolute;
-    top: 10px;
-    left: 10px;
-    right: 10px;
+    top: 15px;
+    left: 20px;
+    right: 20px;
     display: flex;
     justify-content: space-between;
-    font-size: 20px;
+    font-size: 3vh; /* Teksti suurus skaleerub ekraani järgi */
     font-weight: bold;
-    color: #0f0; 
+    color: #fff;
+    text-shadow: 2px 2px 0px #000; /* Parem loetavus tausta peal */
     z-index: 10;
 }
 
 canvas {
     display: block;
-}
-
-#gameOverScreen {
-    position: absolute;
-    top: 0;
-    left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.8);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    z-index: 20;
+    image-rendering: pixelated; /* Retro teravus! */
 }
 
-#gameOverScreen h2 {
-    font-size: 40px;
-    color: red;
-    margin-bottom: 10px;
-}
-
-#restartBtn {
-    padding: 10px 20px;
-    font-size: 20px;
-    background-color: #0f0;
-    color: #000;
-    border: none;
-    cursor: pointer;
-    font-family: inherit;
-    font-weight: bold;
-    margin-top: 20px;
-}
-
-#restartBtn:hover {
-    background-color: #fff;
-}
-
-.hidden {
-    display: none !important;
-}
-
-body {
-    margin: 0; background-color: #111; color: white;
-    font-family: 'Courier New', Courier, monospace;
-    display: flex; justify-content: center; align-items: center; height: 100vh;
-}
-#game-container { position: relative; border: 4px solid #888; background-color: #000; }
-#ui {
-    position: absolute; top: -30px; left: 0; width: 100%;
-    display: flex; justify-content: space-between; font-size: 20px; font-weight: bold; color: #fff;
-}
-canvas { display: block; image-rendering: pixelated; /* Teeb pikslikunsti teravaks */ }
 #gameOverScreen {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
     background-color: rgba(0, 0, 0, 0.85); display: flex; flex-direction: column;
     justify-content: center; align-items: center; z-index: 20;
 }
-#gameOverScreen h2 { font-size: 40px; color: red; margin-bottom: 10px; }
-#restartBtn { padding: 10px 20px; font-size: 20px; cursor: pointer; }
+
+#gameOverScreen h2 { font-size: 5vh; color: red; margin-bottom: 10px; }
+#restartBtn { padding: 10px 20px; font-size: 2.5vh; cursor: pointer; font-family: inherit; font-weight: bold; background-color: #0f0;}
+#restartBtn:hover { background-color: #fff; }
 .hidden { display: none !important; }
