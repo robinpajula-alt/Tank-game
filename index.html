@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Retro Tankimäng (Battle City stiilis)</title>
+    <title>Retro Tankimäng (Battle City)</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -12,7 +12,6 @@
             <span>Punktid: <span id="score">0</span></span>
             <span>Elud: <span id="lives">3</span></span>
         </div>
-        <!-- Resolutsioon määratakse nüüd JS-is (15 * 32 = 480x480 sisemine pilt) -->
         <canvas id="gameCanvas"></canvas>
         
         <div id="gameOverScreen" class="hidden">
@@ -21,6 +20,8 @@
             <button id="restartBtn">Mängi uuesti</button>
         </div>
     </div>
-    <script src="script.js"></script>
+
+    <!-- ES6 Moodulite peakäivitus -->
+    <script type="module" src="js/main.js"></script>
 </body>
 </html>
