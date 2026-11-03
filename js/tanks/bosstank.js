@@ -2,7 +2,7 @@ import { EnemyBot } from './enemybot.js';
 import { Bullet } from '../bullet.js';
 import { FEATURES, DIRECTIONS } from '../config.js';
 import { SPARK_COLORS, FIRE_COLORS } from '../core/effects.js';
-import { DestructibleBlock } from '../world/block.js';
+import { DestructibleBlock, Liquid } from '../world/block.js';
 import { intersects } from '../core/collision.js';
 import { playSound } from '../assets.js';
 
@@ -122,6 +122,16 @@ export class BossTank extends EnemyBot {
         playSound('explosion');
         if (this.phase.shockwave) this.shockwave();
         this.setMode('dazed', this.phase.dazedMs);
+    }
+
+    isBlockedAt(rect, oldRect) {
+        const level = this.game.level;
+        const onLiquid = level.blocks.some(b => b instanceof Liquid && intersects(oldRect, b));
+        const crossLiquid = this.mode === 'charge' || onLiquid;
+        const hitsBlock = level.blocks.some(b => intersects(rect, b) && !(crossLiquid && b instanceof Liquid));
+        if (hitsBlock) return true;
+        return this.game.tanks.some(other =>
+            other !== this && intersects(rect, other) && !intersects(oldRect, other));
     }
 
     shockwave() {
