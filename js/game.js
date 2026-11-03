@@ -1,5 +1,7 @@
 import { STEP_MS, MAX_FRAME_MS, PLAYER_START_LIVES, POWERUP_DROP_CHANCE, MUSIC, MUSIC_FOLDER, MUSIC_VOLUME, levels } from './config.js';
 import { MusicPlayer } from './core/music.js';
+import { simulateBullets } from './core/combat.js';
+import { DemoWorld } from './core/demo.js';
 import { GameState } from './core/gamestate.js';
 import { intersects } from './core/collision.js';
 import { SaveManager } from './core/save.js';
@@ -28,6 +30,7 @@ export class Game {
 
         this.debug = DEBUG ? new DebugTools(this) : null;
         this.music = new MusicPlayer(MUSIC, MUSIC_FOLDER, MUSIC_VOLUME);
+        this.demo = new DemoWorld();     // menüü ja lugukaartide taustamäng
 
         this.state = GameState.MENU;
         this.level = null;
@@ -153,7 +156,10 @@ export class Game {
         if (pausePressed && (this.state === GameState.PLAYING || this.state === GameState.PAUSED)) {
             this.setPaused(this.state === GameState.PLAYING);
         }
-        if (this.state !== GameState.PLAYING) return;
+        if (this.state !== GameState.PLAYING) {
+            if (!this.level) this.demo.update(deltaTime);   // menüü / lugu: taustamäng käib
+            return;
+        }
 
         // Fikseeritud ajasammud: sama kiirus igal ekraanil, kuulid ei "tunneldä" läbi seina.
         this.accumulator += Math.min(deltaTime, MAX_FRAME_MS);
@@ -171,54 +177,11 @@ export class Game {
 
         this.spawner.update(dt);
         this.level.update(dt);
-        this.updateBullets(dt);
+        simulateBullets(this, dt);
         this.updatePowerUps(dt);
         this.cleanup();
         this.checkLevelComplete();
         if (this.state === GameState.PLAYING) this.syncHud();
-    }
-
-    updateBullets(dt) {
-        this.bullets.forEach(bullet => bullet.update(dt));
-        this.resolveBulletClashes();
-
-        for (const bullet of this.bullets) {
-            if (bullet.markedForDeletion) continue;
-
-            // Plokid: kuul kaob igal juhul, plokk otsustab ise, mis temaga juhtub (polümorfism).
-            const hitBlocks = this.level.blocksOverlapping(bullet);
-            if (hitBlocks.length > 0) {
-                hitBlocks.forEach(block => block.onBulletHit(this, bullet));
-                bullet.markedForDeletion = true;
-                continue;
-            }
-
-            // Tankid: ainult vastasmeeskond ja ainult esimene tabatu.
-            for (const tank of this.tanks) {
-                if (tank.team !== bullet.team && intersects(bullet, tank)) {
-                    tank.takeDamage(bullet.damage);
-                    bullet.markedForDeletion = true;
-                    break;
-                }
-            }
-        }
-    }
-
-    /** Vastasmeeskondade kuulid kustutavad teineteist. Kasutab läbitud teed, et kiired kuulid ei lendaks läbi. */
-    resolveBulletClashes() {
-        for (let i = 0; i < this.bullets.length; i++) {
-            const a = this.bullets[i];
-            if (a.markedForDeletion) continue;
-            for (let j = i + 1; j < this.bullets.length; j++) {
-                const b = this.bullets[j];
-                if (b.markedForDeletion || a.team === b.team) continue;
-                if (intersects(a.sweptRect, b.sweptRect)) {
-                    a.markedForDeletion = true;
-                    b.markedForDeletion = true;
-                    break;
-                }
-            }
-        }
     }
 
     updatePowerUps(dt) {
@@ -301,9 +264,10 @@ export class Game {
 
     // ===== Joonistamine =====
     draw(ctx) {
+        // Menüüs ja lugukaartidel näitame uduse taustana demomängu (CSS klass "blurred").
+        ctx.canvas.classList.toggle('blurred', !this.level);
         if (!this.level) {
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            this.demo.draw(ctx);
             return;
         }
         this.level.drawGround(ctx);

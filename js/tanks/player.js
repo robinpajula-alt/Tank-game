@@ -11,7 +11,8 @@ export class Player extends Tank {
             shootCooldown: PLAYER_SHOOT_COOLDOWN,
             bulletColor: '#ffff00',
             fallbackColor: '#00ff00',
-            shootSound: 'shoot'
+            shootSound: 'shoot',
+            bulletSprite: 'player'
         });
     }
 

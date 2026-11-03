@@ -16,7 +16,10 @@ import { intersects } from "../core/collision.js";
 // Registri-põhine laadimine. split = jaga 4 alamplokiks (16x16), muidu üks 32x32 plokk.
 const TILE_TYPES = {
   [TILE.BRICK]: { split: true, create: (x, y, w, h) => new Brick(x, y, w, h) },
-  [TILE.STEEL]: { split: true, create: (x, y, w, h) => new Steel(x, y, w, h) },
+  [TILE.STEEL]: {
+    split: true,
+    create: (x, y, w, h, biome, q) => new Steel(x, y, w, h, biome, q),
+  },
   [TILE.BASE]: { split: false, create: (x, y, w, h) => new Base(x, y, w, h) },
   [TILE.WALL]: {
     split: true,

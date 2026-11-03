@@ -12,7 +12,7 @@ export class Tank extends Entity {
     constructor(game, x, y, options) {
         const {
             team, spriteSet, speed, health = 1, shootCooldown = 500, size = TANK_SIZE,
-            bulletColor = '#ffffff', fallbackColor = '#888888', filter = null, shootSound = null
+            bulletColor = '#ffffff', fallbackColor = '#888888', filter = null, shootSound = null, bulletSprite = null
         } = options;
         super(x, y, size, size);
 
@@ -25,6 +25,7 @@ export class Tank extends Entity {
         this.shootCooldown = shootCooldown;    // ms
         this.bulletColor = bulletColor;
         this.fallbackColor = fallbackColor;
+        this.bulletSprite = bulletSprite;      // võti assets.images.bullets all
         this.shootSound = shootSound;          // null = lask on hääletu (vaenlased)
         this.filter = filter;                  // canvas filter (värvitoon), nt 'hue-rotate(90deg)'
 
@@ -147,7 +148,7 @@ export class Tank extends Entity {
         if (this.isInvulnerable) return false;
         this.health -= amount;
         this.hitFlashTimer = 120;
-        playSound('explosion');
+        if (!this.game.silent) playSound('explosion');   // menüü taustamaailm on hääletu
         if (this.health <= 0) {
             this.health = 0;
             this.die();

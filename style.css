@@ -94,3 +94,10 @@ button {
 button:hover, button:focus { background-color: #fff; outline: none; }
 
 .hidden { display: none !important; }
+
+#game-container { overflow: hidden; }
+canvas { transition: filter 0.3s; }
+canvas.blurred { filter: blur(4px) brightness(0.7); transform: scale(1.05); }
+#mainMenu, #levelSelect { background-color: rgba(0, 0, 0, 0.35); }
+#storyScreen { background-color: rgba(0, 0, 0, 0.55); }
+.screen h1, .screen h2, .screen p { text-shadow: 2px 2px 0 #000; }

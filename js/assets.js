@@ -1,4 +1,4 @@
-import { BIOMES } from "./config.js";
+import { BIOMES, STEEL_TINT } from "./config.js";
 
 const DIRECTION_NAMES = ["up", "down", "left", "right"];
 const FRAMES_PER_DIRECTION = 4; // 0 = seisab, 1..3 = liikumine
@@ -6,8 +6,15 @@ const TANK_SPRITE_SETS = ["player", "enemy1"]; // uus komplekt = lisa nimi siia 
 
 const BLOCK_FILES = {
   brick: "brick.png",
-  steel: "steel.png",
   base: "base.png",
+};
+
+// Kuulide pildid (assets/images/ suhtes). Puuduv pilt = tavaline värviline kuul, hoiatust ei tule.
+// Joonista kuul SUUNAGA ÜLES, 10 x 12 px: mäng pöörab selle ise.
+const BULLET_FILES = {
+  player: "bullets/player_bullet.png",
+  enemy: "bullets/enemy_bullet.png",
+  boss: "bullets/boss_bullet.png",
 };
 
 const SOUND_FILES = {
@@ -55,7 +62,7 @@ function loadTankSprites(setName) {
 }
 
 export const assets = {
-  images: { tanks: {}, blocks: {}, biomes: {} },
+  images: { tanks: {}, blocks: {}, biomes: {}, bullets: {} },
   sounds: {},
 };
 
@@ -63,6 +70,9 @@ for (const setName of TANK_SPRITE_SETS)
   assets.images.tanks[setName] = loadTankSprites(setName);
 for (const [key, file] of Object.entries(BLOCK_FILES))
   assets.images.blocks[key] = loadImage(`assets/images/${file}`);
+for (const [key, file] of Object.entries(BULLET_FILES))
+  assets.images.bullets[key] = loadImage(`assets/images/${file}`, true);
+
 /** { file } -> üks pilt, { files: [...] } -> pildimassiiv (nurgapildid). */
 function loadSpec(spec, quiet) {
   if (spec.files)
@@ -77,6 +87,7 @@ for (const [name, biome] of Object.entries(BIOMES)) {
     ground: loadSpec(biome.ground, quiet),
     wall: loadSpec(biome.wall, quiet),
     cracked: biome.cracked ? loadSpec(biome.cracked, quiet) : null,
+    steel: biome.steel ? loadSpec(biome.steel, quiet) : null, // valikuline: oma pildid terasele
   };
 }
 for (const [key, src] of Object.entries(SOUND_FILES))
@@ -123,9 +134,17 @@ async function buildDerivedBiomes() {
   }
 }
 
+/** Läbimatu sein = bioomi seina tumedam variant (kui bioomil pole oma `steel` pilte). */
+async function buildSteel() {
+  for (const set of Object.values(assets.images.biomes)) {
+    if (!set.steel) set.steel = await tintSpec(set.wall, STEEL_TINT);
+  }
+}
+
 export async function loadAssets() {
   await Promise.all(pendingImages);
   await buildDerivedBiomes();
+  await buildSteel();
 }
 
 /** Ainus koht, kus on img.complete && naturalWidth > 0 kontroll. Tagastab true, kui joonistas. */

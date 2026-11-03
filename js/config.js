@@ -57,6 +57,10 @@ export const TILE = Object.freeze({
   WALL_CRACKED: 5,
 });
 
+// Läbimatu sein (kaardikood 2) näeb välja nagu bioomi sein, aga tumedam. Toon siin (CSS filter).
+// Soovi korral saab bioomile anda oma pildid: steel: { files: [...] } samamoodi nagu wall.
+export const STEEL_TINT = "grayscale(0.5) brightness(0.55) contrast(1.15)";
+
 // ===== Bioomid =====
 // Uus bioom = uus kirje + pildid assets/images/ kausta. Puuduva pildi asemel kasutatakse värvi.
 // optional: true => puuduva pildi kohta ei tule konsooli hoiatust.

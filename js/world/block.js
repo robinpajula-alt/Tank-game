@@ -27,9 +27,22 @@ export class Block extends Entity {
   }
 }
 
+/**
+ * Läbimatu sein: bioomi seina tumedam variant (assets.js teeb toonitud pildid),
+ * või bioomi oma `steel` pildid, kui need on config.js-is antud.
+ */
 export class Steel extends Block {
-  imageKey = "steel";
-  fallbackColor = "#aaaaaa";
+  constructor(x, y, width, height, biomeName, quadrant = 0) {
+    super(x, y, width, height);
+    const images = assets.images.biomes[biomeName].steel;
+    this.image = Array.isArray(images) ? images[quadrant] : images;
+    const spec = biomeSpec(biomeName);
+    this.fallbackColor = spec.steel ? spec.steel.color : "#555555";
+  }
+
+  getImage() {
+    return this.image;
+  }
 }
 
 /** Kõrbetäht. Kui kuul tabab, on mäng läbi. */

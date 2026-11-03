@@ -26,7 +26,7 @@ export const ENEMY_TYPES = {
         spriteSet: 'enemy1', speed: 50, health: 15,
         size: TILE_SIZE * 2 - 8,                 // 56 px
         shootDelay: [1600, 2600], aggression: 0.3, fallbackColor: '#600',
-        bulletColor: '#ff00aa',
+        bulletColor: '#ff00aa', bulletSprite: 'boss',
         filter: 'sepia(1) saturate(4) hue-rotate(-30deg) brightness(0.75)',
         // minHealth: faas kehtib, kuni elu on sellest suurem. volley = kuulide nihked küljele.
         phases: [
