@@ -1,6 +1,6 @@
 body {
     margin: 0;
-    overflow: hidden; /* Ei lase lehel kerida */
+    overflow: hidden;
     background-color: #111;
     display: flex;
     justify-content: center;
@@ -11,40 +11,86 @@ body {
 
 #game-container {
     position: relative;
-    height: 100vh;       /* Võtab kogu brauseri akna kõrguse */
-    aspect-ratio: 1 / 1; /* Hoiab kasti ideaalselt ruudukujulisena! */
+    height: min(100vh, 100vw);
+    aspect-ratio: 1 / 1;
     background-color: #000;
-}
-
-/* Punktide ja elude kast mängu peal */
-#ui {
-    position: absolute;
-    top: 15px;
-    left: 20px;
-    right: 20px;
-    display: flex;
-    justify-content: space-between;
-    font-size: 3vh; /* Teksti suurus skaleerub ekraani järgi */
-    font-weight: bold;
-    color: #fff;
-    text-shadow: 2px 2px 0px #000; /* Parem loetavus tausta peal */
-    z-index: 10;
 }
 
 canvas {
     display: block;
     width: 100%;
     height: 100%;
-    image-rendering: pixelated; /* Retro teravus! */
+    image-rendering: pixelated;
 }
 
-#gameOverScreen {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    background-color: rgba(0, 0, 0, 0.85); display: flex; flex-direction: column;
-    justify-content: center; align-items: center; z-index: 20;
+/* ---- HUD ---- */
+#ui {
+    position: absolute;
+    top: 1.5vh; left: 2vh; right: 2vh;
+    display: flex;
+    justify-content: space-between;
+    font-size: 2.6vh;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 2px 2px 0 #000;
+    z-index: 10;
+    pointer-events: none;
 }
 
-#gameOverScreen h2 { font-size: 5vh; color: red; margin-bottom: 10px; }
-#restartBtn { padding: 10px 20px; font-size: 2.5vh; cursor: pointer; font-family: inherit; font-weight: bold; background-color: #0f0;}
-#restartBtn:hover { background-color: #fff; }
+#effects {
+    position: absolute;
+    left: 2vh; bottom: 1vh;
+    font-size: 2.2vh;
+    font-weight: bold;
+    color: #ffe;
+    text-shadow: 2px 2px 0 #000;
+    z-index: 10;
+    pointer-events: none;
+}
+
+#bossBar {
+    position: absolute;
+    top: 6vh; left: 20%; right: 20%;
+    height: 1.6vh;
+    border: 2px solid #fff;
+    background: #300;
+    z-index: 10;
+}
+#bossFill { height: 100%; width: 100%; background: #e22; transition: width .15s; }
+
+/* ---- Ekraanid (menüü, lugu, paus, mäng läbi) ---- */
+.screen {
+    position: absolute; inset: 0;
+    background-color: rgba(0, 0, 0, 0.92);
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    gap: 1.6vh;
+    padding: 4vh;
+    box-sizing: border-box;
+    text-align: center;
+    color: #fff;
+    z-index: 20;
+}
+.screen h1 { font-size: 7vh; margin: 0; color: #ffd24a; letter-spacing: .5vh; text-shadow: 3px 3px 0 #8a5a00; }
+.screen h2 { font-size: 4.5vh; margin: 0; color: #ffd24a; }
+.screen h2.bad { color: #e33; }
+.screen p { font-size: 2.3vh; line-height: 1.5; margin: 0; max-width: 85%; }
+.screen .subtitle { font-size: 3vh; color: #9cf; }
+.screen .blurb { color: #ddd; margin-bottom: 1vh; }
+.screen .hint { font-size: 1.8vh; color: #888; margin-top: 2vh; }
+#storyText { font-size: 2.5vh; max-width: 88%; }
+#levelList { display: flex; flex-direction: column; gap: 1vh; }
+
+button {
+    padding: 1.2vh 3vh;
+    font-size: 2.6vh;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: bold;
+    background-color: #ffd24a;
+    border: 3px solid #8a5a00;
+    min-width: 28vh;
+}
+button:hover, button:focus { background-color: #fff; outline: none; }
+
 .hidden { display: none !important; }

@@ -1,87 +1,146 @@
-export const assets = {
-    images: {
-        player: {
-            up: [new Image(), new Image(), new Image(), new Image()],    
-            down: [new Image(), new Image(), new Image(), new Image()],
-            left: [new Image(), new Image(), new Image(), new Image()],
-            right: [new Image(), new Image(), new Image(), new Image()]
-        },
-        enemy: {
-            up: [new Image(), new Image(), new Image(), new Image()],
-            down: [new Image(), new Image(), new Image(), new Image()],
-            left: [new Image(), new Image(), new Image(), new Image()],
-            right: [new Image(), new Image(), new Image(), new Image()]
-        },
-        brick: new Image(),
-        steel: new Image(),
-        base: new Image(),
-        sand: new Image(),
-        sandWall: new Image(),
-        sandWallBroken: new Image()
-    },
-    sounds: {
-        shoot: new Audio(),
-        explosion: new Audio(),
-        baseDestroyed: new Audio()
-    }
+import { BIOMES } from "./config.js";
+
+const DIRECTION_NAMES = ["up", "down", "left", "right"];
+const FRAMES_PER_DIRECTION = 4; // 0 = seisab, 1..3 = liikumine
+const TANK_SPRITE_SETS = ["player", "enemy1"]; // uus komplekt = lisa nimi siia + kaust assets/images/<nimi>/
+
+const BLOCK_FILES = {
+  brick: "brick.png",
+  steel: "steel.png",
+  base: "base.png",
 };
-// Lisa varade hulka:
 
+const SOUND_FILES = {
+  shoot: "assets/sounds/shoot.wav",
+  explosion: "assets/sounds/explosion.wav",
+  baseDestroyed: "assets/sounds/baseDestroyed.wav",
+  powerup: "assets/sounds/powerup.wav",
+};
 
-// Määra failiteed (pildi pühjal täpsete nimedega)[cite: 12]:
-assets.images.sandWall.src = 'assets/images/sand wall.png';
-assets.images.sandWallBroken.src = 'assets/images/sand wall broken.png';
-// Piltide teed
-assets.images.sand.src = 'assets/images/sand.png';
-assets.images.steel.src = 'assets/images/steel.png';
-assets.images.brick.src = 'assets/images/brick.png';
-assets.images.base.src = 'assets/images/base.png';
+const pendingImages = [];
 
-// Vaenlase pildid
-assets.images.enemy.up[0].src = 'assets/images/enemy1/up/sprite_enemy up stand.png';
-assets.images.enemy.up[1].src = 'assets/images/enemy1/up/sprite_enemy up0.png';
-assets.images.enemy.up[2].src = 'assets/images/enemy1/up/sprite_enemy up1.png';
-assets.images.enemy.up[3].src = 'assets/images/enemy1/up/sprite_enemy up2.png';
+function loadImage(src, quiet = false) {
+  const img = new Image();
+  pendingImages.push(
+    new Promise((resolve) => {
+      img.onload = resolve;
+      img.onerror = () => {
+        if (!quiet) console.warn(`Pilti ei leitud: ${src}`);
+        resolve();
+      };
+    }),
+  );
+  img.src = src;
+  return img;
+}
 
-assets.images.enemy.down[0].src = 'assets/images/enemy1/down/sprite_enemy down stand – koopia.png';
-assets.images.enemy.down[1].src = 'assets/images/enemy1/down/sprite_enemy down0.png';
-assets.images.enemy.down[2].src = 'assets/images/enemy1/down/sprite_enemy down1.png';
-assets.images.enemy.down[3].src = 'assets/images/enemy1/down/sprite_enemy down2.png';
+function loadSound(src) {
+  const audio = new Audio(src);
+  audio.preload = "auto";
+  audio.volume = 0.5;
+  return audio;
+}
 
-assets.images.enemy.left[0].src = 'assets/images/enemy1/left/sprite_enemy left stand – koopia.png';
-assets.images.enemy.left[1].src = 'assets/images/enemy1/left/sprite_enemy left0.png';
-assets.images.enemy.left[2].src = 'assets/images/enemy1/left/sprite_enemy left1.png';
-assets.images.enemy.left[3].src = 'assets/images/enemy1/left/sprite_enemy left2.png';
-
-assets.images.enemy.right[0].src = 'assets/images/enemy1/right/sprite_enemy right stand.png';
-assets.images.enemy.right[1].src = 'assets/images/enemy1/right/sprite_enemy right0.png';
-assets.images.enemy.right[2].src = 'assets/images/enemy1/right/sprite_enemy right1.png';
-assets.images.enemy.right[3].src = 'assets/images/enemy1/right/sprite_enemy right2.png';
-
-// Mängija pildid
-assets.images.player.up[0].src = 'assets/images/player/up/seis_üles.png';
-assets.images.player.up[1].src = 'assets/images/player/up/liik_üles_3.png';
-assets.images.player.up[2].src = 'assets/images/player/up/liik_üles_2.png';
-assets.images.player.up[3].src = 'assets/images/player/up/liik_üles_1.png';
-
-assets.images.player.down[0].src = 'assets/images/player/down/seis_alla.png';
-assets.images.player.down[1].src = 'assets/images/player/down/liik_alla_3.png';
-assets.images.player.down[2].src = 'assets/images/player/down/liik_alla_2.png';
-assets.images.player.down[3].src = 'assets/images/player/down/liik_alla_1.png';
-
-assets.images.player.left[0].src = 'assets/images/player/left/seis_vasak.png';
-assets.images.player.left[1].src = 'assets/images/player/left/liik_vasak_3.png';
-assets.images.player.left[2].src = 'assets/images/player/left/liik_vasak_2.png';
-assets.images.player.left[3].src = 'assets/images/player/left/liik_vasak_1.png';
-
-assets.images.player.right[0].src = 'assets/images/player/right/seis_parem.png';
-assets.images.player.right[1].src = 'assets/images/player/right/liik_parem_3.png';
-assets.images.player.right[2].src = 'assets/images/player/right/liik_parem_2.png';
-assets.images.player.right[3].src = 'assets/images/player/right/liik_parem_1.png';
-
-export function playSound(sound) {
-    if (sound.src) {
-        sound.currentTime = 0;
-        sound.play();
+function loadTankSprites(setName) {
+  const sprites = {};
+  for (const dir of DIRECTION_NAMES) {
+    sprites[dir] = [];
+    for (let i = 0; i < FRAMES_PER_DIRECTION; i++) {
+      sprites[dir].push(
+        loadImage(`assets/images/${setName}/${dir}/${setName}_${dir}_${i}.png`),
+      );
     }
+  }
+  return sprites;
+}
+
+export const assets = {
+  images: { tanks: {}, blocks: {}, biomes: {} },
+  sounds: {},
+};
+
+for (const setName of TANK_SPRITE_SETS)
+  assets.images.tanks[setName] = loadTankSprites(setName);
+for (const [key, file] of Object.entries(BLOCK_FILES))
+  assets.images.blocks[key] = loadImage(`assets/images/${file}`);
+/** { file } -> üks pilt, { files: [...] } -> pildimassiiv (nurgapildid). */
+function loadSpec(spec, quiet) {
+  if (spec.files)
+    return spec.files.map((file) => loadImage(`assets/images/${file}`, quiet));
+  return loadImage(`assets/images/${spec.file}`, quiet);
+}
+
+for (const [name, biome] of Object.entries(BIOMES)) {
+  if (biome.from) continue; // tuletatud bioom: tehakse loadAssets()-is
+  const quiet = !!biome.optional;
+  assets.images.biomes[name] = {
+    ground: loadSpec(biome.ground, quiet),
+    wall: loadSpec(biome.wall, quiet),
+    cracked: biome.cracked ? loadSpec(biome.cracked, quiet) : null,
+  };
+}
+for (const [key, src] of Object.entries(SOUND_FILES))
+  assets.sounds[key] = loadSound(src);
+
+/** Teeb pildist toonitud koopia (üks kord laadimisel). Kui pilt pole laetud, tagastab originaali. */
+function tintImage(img, filter) {
+  if (!filter || !img || !(img.complete && img.naturalWidth > 0))
+    return Promise.resolve(img);
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext("2d");
+  ctx.filter = filter; // Safaris puudub: siis jääb pilt toonimata
+  ctx.drawImage(img, 0, 0);
+  return new Promise((resolve) => {
+    const tinted = new Image();
+    tinted.onload = () => resolve(tinted);
+    tinted.onerror = () => resolve(img);
+    tinted.src = canvas.toDataURL();
+  });
+}
+
+function tintSpec(value, filter) {
+  if (!value) return Promise.resolve(null);
+  return Array.isArray(value)
+    ? Promise.all(value.map((img) => tintImage(img, filter)))
+    : tintImage(value, filter);
+}
+
+async function buildDerivedBiomes() {
+  for (const [name, biome] of Object.entries(BIOMES)) {
+    if (!biome.from) continue;
+    const source = assets.images.biomes[biome.from];
+    if (!source || BIOMES[biome.from].from)
+      throw new Error(
+        `Bioom "${name}": "from" peab osutama päris bioomile, mitte "${biome.from}"`,
+      );
+    assets.images.biomes[name] = {
+      ground: await tintSpec(source.ground, biome.tint),
+      wall: await tintSpec(source.wall, biome.tint),
+      cracked: await tintSpec(source.cracked, biome.tint),
+    };
+  }
+}
+
+export async function loadAssets() {
+  await Promise.all(pendingImages);
+  await buildDerivedBiomes();
+}
+
+/** Ainus koht, kus on img.complete && naturalWidth > 0 kontroll. Tagastab true, kui joonistas. */
+export function drawSprite(ctx, img, x, y, width, height) {
+  if (img && img.complete && img.naturalWidth > 0) {
+    ctx.drawImage(img, Math.round(x), Math.round(y), width, height);
+    return true;
+  }
+  return false;
+}
+
+export function playSound(name) {
+  const base = assets.sounds[name];
+  if (!base) return;
+  const sound = base.cloneNode();
+  sound.volume = base.volume;
+  sound.play().catch(() => {});
 }

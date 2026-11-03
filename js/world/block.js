@@ -1,92 +1,77 @@
-import { assets } from "../assets.js";
+import { Entity } from "../core/entity.js";
+import { assets, drawSprite } from "../assets.js";
+import { biomeSpec } from "../config.js";
 
-export class Block {
-  constructor(x, y, width, height) {
-    this.x = x;
-    this.y = y;
-    this.width = width;
-    this.height = height;
-    this.markedForDeletion = false;
+/**
+ * Plokkide baasklass. Iga plokk otsustab ise, mis temaga juhtub, kui kuul pihta saab.
+ * Uus plokitüüp = uus alamklass + rida level.js-i registris. Game.js-i ei puutu.
+ */
+export class Block extends Entity {
+  imageKey = null; // võti assets.images.blocks all
+  fallbackColor = "#ff00ff";
+
+  getImage() {
+    return assets.images.blocks[this.imageKey];
   }
+
+  /** Vaikimisi (teras): ei juhtu midagi, kuul kaob. */
+  onBulletHit(game, bullet) {}
+
   draw(ctx) {
+    if (
+      drawSprite(ctx, this.getImage(), this.x, this.y, this.width, this.height)
+    )
+      return;
+    ctx.fillStyle = this.fallbackColor;
     ctx.fillRect(this.x, this.y, this.width, this.height);
   }
 }
 
-export class Brick extends Block {
-  draw(ctx) {
-    let img = assets.images.brick;
-    if (img && img.complete && img.naturalWidth > 0) {
-      ctx.drawImage(img, this.x, this.y, this.width, this.height);
-    } else {
-      ctx.fillStyle = "#8B4513";
-      super.draw(ctx);
-    }
-  }
-}
-
 export class Steel extends Block {
-  draw(ctx) {
-    let img = assets.images.steel;
-    if (img && img.complete && img.naturalWidth > 0) {
-      ctx.drawImage(img, this.x, this.y, this.width, this.height);
-    } else {
-      ctx.fillStyle = "#aaa";
-      super.draw(ctx);
-    }
-  }
+  imageKey = "steel";
+  fallbackColor = "#aaaaaa";
 }
 
-export class Ground {
-  constructor(x, y, width, height) {
-    this.x = x;
-    this.y = y;
-    this.width = width;
-    this.height = height;
-  }
-  draw(ctx) {
-    let img = assets.images.sand;
-    if (img && img.complete && img.naturalWidth > 0) {
-      ctx.drawImage(img, this.x, this.y, this.width, this.height);
-    } else {
-      ctx.fillStyle = "#d2b48c";
-      ctx.fillRect(this.x, this.y, this.width, this.height);
-    }
-  }
-}
-
+/** Kõrbetäht. Kui kuul tabab, on mäng läbi. */
 export class Base extends Block {
-  draw(ctx) {
-    let img = assets.images.base;
-    if (img && img.complete && img.naturalWidth > 0) {
-      ctx.drawImage(img, this.x, this.y, this.width, this.height);
-    } else {
-      ctx.fillStyle = "#00f";
-      super.draw(ctx);
-    }
+  imageKey = "base";
+  fallbackColor = "#00bfff";
+
+  onBulletHit(game) {
+    this.markedForDeletion = true;
+    game.onBaseDestroyed();
   }
 }
 
-export class SandWall extends Block {
-  draw(ctx) {
-    let img = assets.images.sandWall;
-    if (img && img.complete && img.naturalWidth > 0) {
-      ctx.drawImage(img, this.x, this.y, this.width, this.height);
-    } else {
-      ctx.fillStyle = "#e0a96d"; // Liiva värv juhuks kui pilt laeb
-      super.draw(ctx);
-    }
+/** Hävib ühe kuuliga. */
+export class DestructibleBlock extends Block {
+  onBulletHit() {
+    this.markedForDeletion = true;
   }
 }
 
-export class SandWallBroken extends Block {
-  draw(ctx) {
-    let img = assets.images.sandWallBroken;
-    if (img && img.complete && img.naturalWidth > 0) {
-      ctx.drawImage(img, this.x, this.y, this.width, this.height);
-    } else {
-      ctx.fillStyle = "#c28b51"; // Katkise liiva värv
-      super.draw(ctx);
-    }
+export class Brick extends DestructibleBlock {
+  imageKey = "brick";
+  fallbackColor = "#8B4513";
+}
+
+/**
+ * Bioomi sein: pilt ja värv tulevad bioomi andmetest (config.js BIOMES).
+ * quadrant (0 üleval vasakul, 1 üleval paremal, 2 all paremal, 3 all vasakul) valib nurgapildi,
+ * kui bioomil on seinal 4 pilti (nt jää).
+ */
+export class Wall extends DestructibleBlock {
+  constructor(x, y, width, height, biomeName, cracked = false, quadrant = 0) {
+    super(x, y, width, height);
+    const images = assets.images.biomes[biomeName];
+    const spec = biomeSpec(biomeName);
+    const useCracked = cracked && spec.cracked; // puudub -> tavaline sein
+    const image = useCracked ? images.cracked : images.wall;
+    this.image = Array.isArray(image) ? image[quadrant] : image;
+    this.fallbackColor = (useCracked ? spec.cracked : spec.wall).color;
+  }
+
+  getImage() {
+    return this.image;
   }
 }

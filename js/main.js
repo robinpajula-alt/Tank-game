@@ -1,36 +1,31 @@
 import { Game } from './game.js';
-import { TILE_SIZE } from './config.js';
+import { HUD } from './core/hud.js';
+import { InputHandler } from './core/input.js';
+import { loadAssets } from './assets.js';
+import { CANVAS_WIDTH, CANVAS_HEIGHT } from './config.js';
 
-document.addEventListener('DOMContentLoaded', () => {
+async function start() {
     const canvas = document.getElementById('gameCanvas');
+    canvas.width = CANVAS_WIDTH;
+    canvas.height = CANVAS_HEIGHT;
     const ctx = canvas.getContext('2d');
-    
-    // Määrame resolutsiooni
-    canvas.width = 15 * TILE_SIZE;  // 480
-    canvas.height = 15 * TILE_SIZE; // 480
+    ctx.imageSmoothingEnabled = false;
 
-    let game = new Game(canvas);
-    let lastTime = 0;
+    await loadAssets();
 
-    function animate(timeStamp) {
+    const game = new Game(new HUD(), new InputHandler());
+
+    let lastTime = null;
+    function frame(timeStamp) {
+        if (lastTime === null) lastTime = timeStamp;
         const deltaTime = timeStamp - lastTime;
         lastTime = timeStamp;
-        
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
         game.update(deltaTime);
         game.draw(ctx);
-        
-        if (!game.gameOver) {
-            requestAnimationFrame(animate);
-        }
+        requestAnimationFrame(frame);
     }
-    
-    animate(0);
+    requestAnimationFrame(frame);
+}
 
-    document.getElementById('restartBtn').addEventListener('click', () => {
-        document.getElementById('gameOverScreen').classList.add('hidden');
-        game = new Game(canvas); 
-        lastTime = performance.now();
-        animate(0);
-    });
-});
+start();

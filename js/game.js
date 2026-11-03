@@ -1,172 +1,316 @@
-import { TILE_SIZE, HALF_TILE, levels, level1 } from './config.js';
-import { assets, playSound } from './assets.js';
-import { Brick, Steel, Base, Ground, SandWall, SandWallBroken } from './block.js';
-import { Player } from './player.js';
-import { EnemyBot } from './enemybot.js';
+import { STEP_MS, MAX_FRAME_MS, PLAYER_START_LIVES, POWERUP_DROP_CHANCE, MUSIC, MUSIC_FOLDER, MUSIC_VOLUME, levels } from './config.js';
+import { MusicPlayer } from './core/music.js';
+import { GameState } from './core/gamestate.js';
+import { intersects } from './core/collision.js';
+import { SaveManager } from './core/save.js';
+import { Screens } from './core/screens.js';
+import { Level } from './world/level.js';
+import { Spawner } from './world/spawner.js';
+import { Player } from './tanks/player.js';
+import { PowerUp, randomPowerUpType } from './powerup.js';
+import { playSound } from './assets.js';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, DEBUG } from './config.js';
+import { DebugTools } from './core/debug.js';
 
 export class Game {
-    constructor(canvas) {
-        this.canvas = canvas;
-        this.grounds = [];
-        this.blocks = [];
-        this.bullets = [];
-        this.enemies = [];
+    constructor(hud, input) {
+        this.hud = hud;
+        this.input = input;
+        this.screens = new Screens({
+            onStart: () => this.startAdventure(),
+            onContinue: () => this.continueAdventure(),
+            onOpenLevelSelect: () => this.screens.showLevelSelect(levels.map(l => l.name)),
+            onPickLevel: index => this.openLevel(index),
+            onResume: () => this.setPaused(false),
+            onRetry: () => this.beginLevel(this.levelIndex),
+            onMenu: () => this.showMainMenu()
+        });
+
+        this.debug = DEBUG ? new DebugTools(this) : null;
+        this.music = new MusicPlayer(MUSIC, MUSIC_FOLDER, MUSIC_VOLUME);
+
+        this.state = GameState.MENU;
+        this.level = null;
         this.player = null;
-        this.keys = [];
-        this.score = 0;
-        this.lives = 3;
-        this.currentLevel = 0;
-        this.gameOver = false;
-        
-        this.spawnPoints = [
-            {x: 0, y: 0}, 
-            {x: (this.canvas.width / 2) - (TILE_SIZE / 2), y: 0}, 
-            {x: this.canvas.width - TILE_SIZE, y: 0}
-        ];
-        this.enemyTimer = 0;
-        this.enemyInterval = 6500; 
+        this.enemies = [];
+        this.bullets = [];
+        this.powerUps = [];
+        this.spawner = null;
+        this.levelIndex = 0;
+        this.lives = PLAYER_START_LIVES;
+        this.freezeTimer = 0;
+        this.accumulator = 0;
 
-        this.setupInputs();
-        this.loadLevel(this.currentLevel);
+        this.showMainMenu();
     }
 
-    setupInputs() {
-        window.addEventListener('keydown', e => { if (this.keys.indexOf(e.key) === -1) this.keys.push(e.key); });
-        window.addEventListener('keyup', e => {
-            const index = this.keys.indexOf(e.key);
-            if (index > -1) this.keys.splice(index, 1);
+    // ===== Mängu käik: menüü -> lugu -> tase -> lugu -> ... =====
+    showMainMenu() {
+        this.music.play('menu');
+        this.state = GameState.MENU;
+        this.level = null;
+        this.hud.hideGameUi();
+        const save = SaveManager.load();
+        const canContinue = !!(save && save.inProgress);
+        this.screens.showMainMenu({
+            canContinue,
+            continueLabel: canContinue ? `Jätka (tase ${save.levelIndex + 1})` : 'Jätka',
+            completed: !!(save && save.completed)
         });
     }
 
-    loadLevel(levelIndex) {
-        this.blocks = [];
-        this.grounds = [];
-
-        for (let row = 0; row < 15; row++) {
-            for (let col = 0; col < 15; col++) {
-                this.grounds.push(new Ground(col * TILE_SIZE, row * TILE_SIZE, TILE_SIZE, TILE_SIZE));
-            }
-        }
-
-        let currentLevelMap = levels[levelIndex] || level1;
-
-        for (let row = 0; row < currentLevelMap.length; row++) {
-            for (let col = 0; col < currentLevelMap[row].length; col++) {
-                let type = currentLevelMap[row][col];
-                let x = col * TILE_SIZE;
-                let y = row * TILE_SIZE;
-                
-                if (type === 1) {
-                    this.blocks.push(new Brick(x, y, HALF_TILE, HALF_TILE));
-                    this.blocks.push(new Brick(x + HALF_TILE, y, HALF_TILE, HALF_TILE));
-                    this.blocks.push(new Brick(x, y + HALF_TILE, HALF_TILE, HALF_TILE));
-                    this.blocks.push(new Brick(x + HALF_TILE, y + HALF_TILE, HALF_TILE, HALF_TILE));
-                } 
-                else if (type === 2) {
-                    this.blocks.push(new Steel(x, y, HALF_TILE, HALF_TILE));
-                    this.blocks.push(new Steel(x + HALF_TILE, y, HALF_TILE, HALF_TILE));
-                    this.blocks.push(new Steel(x, y + HALF_TILE, HALF_TILE, HALF_TILE));
-                    this.blocks.push(new Steel(x + HALF_TILE, y + HALF_TILE, HALF_TILE, HALF_TILE));
-                } 
-                else if (type === 3) {
-                    this.blocks.push(new Base(x, y, TILE_SIZE, TILE_SIZE));
-                }
-                else if (type === 4) {
-                    this.blocks.push(new SandWall(x, y, HALF_TILE, HALF_TILE));
-                    this.blocks.push(new SandWall(x + HALF_TILE, y, HALF_TILE, HALF_TILE));
-                    this.blocks.push(new SandWall(x, y + HALF_TILE, HALF_TILE, HALF_TILE));
-                    this.blocks.push(new SandWall(x + HALF_TILE, y + HALF_TILE, HALF_TILE, HALF_TILE));
-                } 
-                else if (type === 5) {
-                    this.blocks.push(new SandWallBroken(x, y, HALF_TILE, HALF_TILE));
-                    this.blocks.push(new SandWallBroken(x + HALF_TILE, y, HALF_TILE, HALF_TILE));
-                    this.blocks.push(new SandWallBroken(x, y + HALF_TILE, HALF_TILE, HALF_TILE));
-                    this.blocks.push(new SandWallBroken(x + HALF_TILE, y + HALF_TILE, HALF_TILE, HALF_TILE));
-                }
-            }
-        }
-        
-        this.player = new Player(this, 4 * TILE_SIZE + 2, this.canvas.height - TILE_SIZE + 2);
+    startAdventure() {
+        const save = SaveManager.load();
+        if (save && save.inProgress &&
+            !window.confirm('Alustad uue seikluse? Praegune edenemine kirjutatakse üle.')) return;
+        SaveManager.write({ levelIndex: 0, inProgress: true, completed: !!(save && save.completed) });
+        this.openLevel(0);
     }
 
-    update(deltaTime) {
-        if (this.gameOver) return;
+    continueAdventure() {
+        const save = SaveManager.load();
+        this.openLevel(save ? save.levelIndex : 0);
+    }
 
-        this.player.update(this.keys, deltaTime);
+    /** Näita taseme sissejuhatust, siis alusta. */
+    openLevel(index) {
+        this.levelIndex = index;
+        this.state = GameState.STORY;
+        this.level = null;
+        this.hud.hideGameUi();
+        this.screens.showStory(
+            { title: `${index + 1}. ${levels[index].name}`, text: levels[index].intro, button: 'Alusta' },
+            () => this.beginLevel(index)
+        );
+    }
 
-        this.bullets.forEach(bullet => {
-            bullet.update();
-            let hitBlock = false;
+    beginLevel(index) {
+        const definition = levels[index];
+        if (!definition) throw new Error(`Taset ${index} ei leitud config.js-ist`);
 
-            for (let block of this.blocks) {
-                if (this.checkCollision(bullet, block)) {
-                    hitBlock = true;
-                    if (block instanceof Brick || block instanceof SandWall || block instanceof SandWallBroken) {
-                        block.markedForDeletion = true;
-                    } else if (block instanceof Base) {
-                        block.markedForDeletion = true;
-                        this.endGame(false);
-                        playSound(assets.sounds.baseDestroyed);
-                    }
-                }
-            }
+        this.levelIndex = index;
+        this.music.play(definition.biome);
+        this.lives = PLAYER_START_LIVES;
+        this.player = new Player(this);
+        this.level = new Level(definition, this);
+        this.spawner = new Spawner(this, definition);
+        this.enemies = [];
+        this.bullets = [];
+        this.powerUps = [];
+        this.freezeTimer = 0;
+        this.accumulator = 0;
+        this.player.respawn();
 
-            if (hitBlock) bullet.markedForDeletion = true;
+        this.state = GameState.PLAYING;
+        this.screens.hideAll();
+        this.hud.showGameUi();
+        this.syncHud();
+    }
 
-            if (bullet.isEnemy) {
-                if (this.checkCollision(bullet, this.player)) {
-                    bullet.markedForDeletion = true;
-                    this.lives--;
-                    playSound(assets.sounds.explosion);
-                    if (this.lives <= 0) this.endGame(false);
-                }
-            } else {
-                this.enemies.forEach(enemy => {
-                    if (this.checkCollision(bullet, enemy)) {
-                        bullet.markedForDeletion = true;
-                        enemy.markedForDeletion = true;
-                        this.score += 100;
-                        playSound(assets.sounds.explosion);
-                    }
-                });
-            }
+    onLevelComplete() {
+        const finished = this.levelIndex + 1 >= levels.length;
+        const previous = SaveManager.load();
+        SaveManager.write({
+            levelIndex: finished ? 0 : this.levelIndex + 1,
+            inProgress: !finished,
+            completed: finished || !!(previous && previous.completed)
         });
 
-        this.blocks = this.blocks.filter(block => !block.markedForDeletion);
-        this.bullets = this.bullets.filter(bullet => !bullet.markedForDeletion);
-        this.enemies = this.enemies.filter(enemy => !enemy.markedForDeletion);
-
-        if (this.enemyTimer > this.enemyInterval) {
-            let spawnPt = this.spawnPoints[Math.floor(Math.random() * this.spawnPoints.length)];
-            this.enemies.push(new EnemyBot(this, spawnPt.x, spawnPt.y));
-            this.enemyTimer = 0;
+        const definition = levels[this.levelIndex];
+        this.state = GameState.STORY;
+        this.hud.hideGameUi();
+        if (finished) {
+            this.screens.showStory({ title: 'Seiklus lõppes', text: definition.outro, button: 'Peamenüü' },
+                () => this.showMainMenu());
         } else {
-            this.enemyTimer += deltaTime;
+            this.screens.showStory({ title: 'Tase läbitud', text: definition.outro, button: 'Edasi' },
+                () => this.openLevel(this.levelIndex + 1));
         }
-
-        this.enemies.forEach(enemy => enemy.update(deltaTime));
-
-        document.getElementById('score').innerText = this.score;
-        document.getElementById('lives').innerText = this.lives;
     }
 
+    setPaused(paused) {
+        if (paused) this.music.pause();
+        else this.music.resume();
+        this.state = paused ? GameState.PAUSED : GameState.PLAYING;
+        this.screens.showPause(paused);
+    }
+
+    // ===== Päringud =====
+    get tanks() {
+        if (!this.player) return [];
+        return [this.player, ...this.enemies].filter(t => !t.markedForDeletion);
+    }
+
+    get enemiesRemaining() {
+        return this.spawner.queue.length + this.enemies.length;
+    }
+
+    // ===== Tsükkel =====
+    update(deltaTime) {
+        if (this.debug) this.debug.update();
+        if (this.input.consumePress('KeyM')) this.music.toggleMute();   // M = muusika sisse/välja
+        const pausePressed = this.input.consumePress('KeyP') | this.input.consumePress('Escape');
+        if (pausePressed && (this.state === GameState.PLAYING || this.state === GameState.PAUSED)) {
+            this.setPaused(this.state === GameState.PLAYING);
+        }
+        if (this.state !== GameState.PLAYING) return;
+
+        // Fikseeritud ajasammud: sama kiirus igal ekraanil, kuulid ei "tunneldä" läbi seina.
+        this.accumulator += Math.min(deltaTime, MAX_FRAME_MS);
+        while (this.accumulator >= STEP_MS) {
+            this.step(STEP_MS);
+            this.accumulator -= STEP_MS;
+            if (this.state !== GameState.PLAYING) { this.accumulator = 0; break; }
+        }
+    }
+
+    step(dt) {
+        this.player.update(dt);
+        if (this.freezeTimer > 0) this.freezeTimer -= dt;
+        else this.enemies.forEach(enemy => enemy.update(dt));
+
+        this.spawner.update(dt);
+        this.level.update(dt);
+        this.updateBullets(dt);
+        this.updatePowerUps(dt);
+        this.cleanup();
+        this.checkLevelComplete();
+        if (this.state === GameState.PLAYING) this.syncHud();
+    }
+
+    updateBullets(dt) {
+        this.bullets.forEach(bullet => bullet.update(dt));
+        this.resolveBulletClashes();
+
+        for (const bullet of this.bullets) {
+            if (bullet.markedForDeletion) continue;
+
+            // Plokid: kuul kaob igal juhul, plokk otsustab ise, mis temaga juhtub (polümorfism).
+            const hitBlocks = this.level.blocksOverlapping(bullet);
+            if (hitBlocks.length > 0) {
+                hitBlocks.forEach(block => block.onBulletHit(this, bullet));
+                bullet.markedForDeletion = true;
+                continue;
+            }
+
+            // Tankid: ainult vastasmeeskond ja ainult esimene tabatu.
+            for (const tank of this.tanks) {
+                if (tank.team !== bullet.team && intersects(bullet, tank)) {
+                    tank.takeDamage(bullet.damage);
+                    bullet.markedForDeletion = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    /** Vastasmeeskondade kuulid kustutavad teineteist. Kasutab läbitud teed, et kiired kuulid ei lendaks läbi. */
+    resolveBulletClashes() {
+        for (let i = 0; i < this.bullets.length; i++) {
+            const a = this.bullets[i];
+            if (a.markedForDeletion) continue;
+            for (let j = i + 1; j < this.bullets.length; j++) {
+                const b = this.bullets[j];
+                if (b.markedForDeletion || a.team === b.team) continue;
+                if (intersects(a.sweptRect, b.sweptRect)) {
+                    a.markedForDeletion = true;
+                    b.markedForDeletion = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    updatePowerUps(dt) {
+        for (const powerUp of this.powerUps) {
+            powerUp.update(dt);
+            if (!powerUp.markedForDeletion && intersects(this.player, powerUp)) powerUp.apply(this);
+        }
+    }
+
+    cleanup() {
+        this.enemies = this.enemies.filter(e => !e.markedForDeletion);
+        this.bullets = this.bullets.filter(b => !b.markedForDeletion);
+        this.powerUps = this.powerUps.filter(p => !p.markedForDeletion);
+        this.level.removeDestroyed();
+    }
+
+    checkLevelComplete() {
+        if (this.spawner.isFinished && this.enemies.length === 0) this.onLevelComplete();
+    }
+
+    // ===== Sündmused (kutsutakse teistest klassidest) =====
+    onEnemyKilled(enemy) {
+        if (enemy.isBoss) {
+            // Boss langes: ülejäänud bandiidid hajuvad.
+            this.spawner.clear();
+            this.enemies.forEach(e => { e.markedForDeletion = true; });
+            return;
+        }
+        if (Math.random() < POWERUP_DROP_CHANCE) {
+            const cx = enemy.x + enemy.width / 2;
+            const cy = enemy.y + enemy.height / 2;
+            this.powerUps.push(new PowerUp(
+                Math.min(Math.max(cx, 16), CANVAS_WIDTH - 16),
+                Math.min(Math.max(cy, 16), CANVAS_HEIGHT - 16),
+                randomPowerUpType()
+            ));
+        }
+    }
+
+    onPlayerKilled() {
+        this.lives--;
+        if (this.lives <= 0) this.gameOver();
+        else this.player.respawn();
+    }
+
+    onBaseDestroyed() {
+        playSound('baseDestroyed');
+        this.gameOver();
+    }
+
+    gameOver() {
+        if (this.state !== GameState.PLAYING) return;
+        this.state = GameState.GAME_OVER;
+        this.syncHud();
+        this.screens.showGameOver();
+    }
+
+    // ===== HUD =====
+    syncHud() {
+        const boss = this.enemies.find(e => e.isBoss);
+        this.hud.update({
+            levelName: `${this.levelIndex + 1}. ${levels[this.levelIndex].name}`,
+            lives: this.lives,
+            enemies: this.enemiesRemaining,
+            effects: this.effectsText(),
+            bossRatio: boss ? boss.health / boss.maxHealth : null
+        });
+    }
+
+    effectsText() {
+        const seconds = ms => Math.ceil(ms / 1000);
+        const parts = [];
+        if (this.player.speedBoostTimer > 0) parts.push(`Kiirus ${seconds(this.player.speedBoostTimer)}s`);
+        if (this.debug && this.debug.god) parts.push('SUREMATU');
+        else if (this.player.invulnerableTimer > 0) parts.push(`Kilp ${seconds(this.player.invulnerableTimer)}s`);
+        if (this.level.fortifyTimer > 0) parts.push(`Kindlus ${seconds(this.level.fortifyTimer)}s`);
+        if (this.freezeTimer > 0) parts.push(`Külm ${seconds(this.freezeTimer)}s`);
+        return parts.join(' · ');
+    }
+
+    // ===== Joonistamine =====
     draw(ctx) {
-        this.grounds.forEach(ground => ground.draw(ctx));
-        this.blocks.forEach(block => block.draw(ctx));
+        if (!this.level) {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            return;
+        }
+        this.level.drawGround(ctx);
+        this.level.drawBlocks(ctx);
+        this.powerUps.forEach(powerUp => powerUp.draw(ctx));
         this.player.draw(ctx);
         this.enemies.forEach(enemy => enemy.draw(ctx));
         this.bullets.forEach(bullet => bullet.draw(ctx));
-    }
-
-    checkCollision(rect1, rect2) {
-        return (rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x &&
-                rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y);
-    }
-
-    endGame(win) {
-        this.gameOver = true;
-        document.getElementById('gameOverScreen').classList.remove('hidden');
-        document.getElementById('gameOverText').innerText = win ? "VÕITSID!" : "MÄNG LÄBI";
-        document.getElementById('finalScore').innerText = this.score;
     }
 }

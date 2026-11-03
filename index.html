@@ -3,25 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Retro Tankimäng (Battle City)</title>
+    <title>Kõrbetäht – tankiseiklus</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="game-container">
-        <div id="ui">
-            <span>Punktid: <span id="score">0</span></span>
+        <div id="ui" class="hidden">
+            <span id="levelName"></span>
             <span>Elud: <span id="lives">3</span></span>
+            <span>Vaenlasi: <span id="enemies">0</span></span>
         </div>
+        <div id="effects"></div>
+        <div id="bossBar" class="hidden"><div id="bossFill"></div></div>
+
         <canvas id="gameCanvas"></canvas>
-        
-        <div id="gameOverScreen" class="hidden">
-            <h2 id="gameOverText">MÄNG LÄBI</h2>
-            <p>Sinu skoor: <span id="finalScore">0</span></p>
-            <button id="restartBtn">Mängi uuesti</button>
+
+        <div id="mainMenu" class="screen">
+            <h1>KÕRBETÄHT</h1>
+            <p class="subtitle">Tankiseiklus</p>
+            <p class="blurb">Röövlipealik Karak tahab endale Kõrbetähte, vääriskivi, mis hoiab liivad rahus.
+               Sina oled viimane tankikaitsja.</p>
+            <button id="btnStart">Alusta seiklust</button>
+            <button id="btnContinue" class="hidden">Jätka</button>
+            <button id="btnLevels" class="hidden">Vali tase</button>
+            <p class="hint">Nooled / WASD – sõida · Tühik – tulista · P või Esc – paus</p>
+        </div>
+
+        <div id="levelSelect" class="screen hidden">
+            <h2>Vali tase</h2>
+            <div id="levelList"></div>
+            <button id="btnLevelsBack">Tagasi</button>
+        </div>
+
+        <div id="storyScreen" class="screen hidden">
+            <h2 id="storyTitle"></h2>
+            <p id="storyText"></p>
+            <button id="storyBtn">Edasi</button>
+        </div>
+
+        <div id="pauseScreen" class="screen hidden">
+            <h2>PAUS</h2>
+            <button id="btnResume">Jätka</button>
+            <button id="btnPauseMenu">Peamenüü</button>
+        </div>
+
+        <div id="gameOverScreen" class="screen hidden">
+            <h2 class="bad">MÄNG LÄBI</h2>
+            <p>Kõrbetäht langes röövlite kätte...</p>
+            <button id="btnRetry">Proovi uuesti</button>
+            <button id="btnGameOverMenu">Peamenüü</button>
         </div>
     </div>
 
-    <!-- ES6 Moodulite peakäivitus -->
     <script type="module" src="js/main.js"></script>
 </body>
 </html>
