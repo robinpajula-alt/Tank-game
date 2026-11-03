@@ -1,57 +1,86 @@
 <!DOCTYPE html>
-<html lang="et">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kõrbetäht – tankiseiklus</title>
+    <title>Desert Star – a tank adventure</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="game-container">
         <div id="ui" class="hidden">
-            <span id="levelName"></span>
-            <span>Elud: <span id="lives">3</span></span>
-            <span>Vaenlasi: <span id="enemies">0</span></span>
+            <div id="enemyPanel" title="Enemies still to come"></div>
+            <div id="lives" title="Lives"></div>
         </div>
+        <div id="levelTitle" class="hidden"></div>
+        <div id="banner" class="hidden"></div>
         <div id="effects"></div>
+        <div id="score"></div>
         <div id="bossBar" class="hidden"><div id="bossFill"></div></div>
 
         <canvas id="gameCanvas"></canvas>
 
         <div id="mainMenu" class="screen">
-            <h1>KÕRBETÄHT</h1>
-            <p class="subtitle">Tankiseiklus</p>
-            <p class="blurb">Röövlipealik Karak tahab endale Kõrbetähte, vääriskivi, mis hoiab liivad rahus.
-               Sina oled viimane tankikaitsja.</p>
-            <button id="btnStart">Alusta seiklust</button>
-            <button id="btnContinue" class="hidden">Jätka</button>
-            <button id="btnLevels" class="hidden">Vali tase</button>
-            <p class="hint">Nooled / WASD – sõida · Tühik – tulista · P või Esc – paus</p>
+            <h1>DESERT STAR</h1>
+            <p class="subtitle">A Tank Adventure</p>
+            <p class="blurb">The warlord Karak wants the Desert Star, the jewel that keeps the desert calm.
+               You're the last tank guarding it.</p>
+            <button id="btnStart">Begin the Journey</button>
+            <button id="btnContinue" class="hidden">Continue</button>
+            <button id="btnLevels" class="hidden">Choose Level</button>
+            <button id="btnSettings"><span class="ui-icon gear"></span>Settings</button>
+            <p class="hint">Arrows / WASD – drive · Space – fire · P or Esc – pause · M – music</p>
         </div>
 
         <div id="levelSelect" class="screen hidden">
-            <h2>Vali tase</h2>
+            <h2>Choose Level</h2>
             <div id="levelList"></div>
-            <button id="btnLevelsBack">Tagasi</button>
+            <button id="btnLevelsBack">Back</button>
         </div>
 
         <div id="storyScreen" class="screen hidden">
             <h2 id="storyTitle"></h2>
             <p id="storyText"></p>
-            <button id="storyBtn">Edasi</button>
+            <button id="storyBtn">Onward</button>
+        </div>
+
+        <div id="upgradeScreen" class="screen hidden">
+            <h2>Nomad Camp</h2>
+            <p>The nomads repair your tank and offer you one upgrade for the rest of the journey.
+               If you lose later on, you'll start again from this camp.</p>
+            <div id="upgradeList"></div>
+        </div>
+
+        <div id="settingsScreen" class="screen hidden">
+            <h2>Settings</h2>
+            <div class="setting">
+                <span class="ui-icon music"></span><span class="label">Music</span>
+                <button class="step" data-key="music" data-step="-1">-</button>
+                <span class="bar" id="bar-music"></span>
+                <button class="step" data-key="music" data-step="1">+</button>
+            </div>
+            <div class="setting">
+                <span class="ui-icon sound"></span><span class="label">Sound</span>
+                <button class="step" data-key="sfx" data-step="-1">-</button>
+                <span class="bar" id="bar-sfx"></span>
+                <button class="step" data-key="sfx" data-step="1">+</button>
+            </div>
+            <button id="btnSettingsBack">Back</button>
         </div>
 
         <div id="pauseScreen" class="screen hidden">
-            <h2>PAUS</h2>
-            <button id="btnResume">Jätka</button>
-            <button id="btnPauseMenu">Peamenüü</button>
+            <h2>PAUSED</h2>
+            <button id="btnResume">Resume</button>
+            <button id="btnPauseSettings"><span class="ui-icon gear"></span>Settings</button>
+            <button id="btnPauseMenu">Main Menu</button>
         </div>
 
         <div id="gameOverScreen" class="screen hidden">
-            <h2 class="bad">MÄNG LÄBI</h2>
-            <p>Kõrbetäht langes röövlite kätte...</p>
-            <button id="btnRetry">Proovi uuesti</button>
-            <button id="btnGameOverMenu">Peamenüü</button>
+            <h2 class="bad">GAME OVER</h2>
+            <p>The raiders got the Desert Star.</p>
+            <p id="gameOverScore"></p>
+            <button id="btnRetry">Try Again from Checkpoint</button>
+            <button id="btnGameOverMenu">Main Menu</button>
         </div>
     </div>
 

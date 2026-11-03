@@ -1,14 +1,12 @@
-import { levels, TEAM, STEP_MS, MAX_FRAME_MS, TANK_SIZE } from '../config.js';
+import { levels, TEAM, STEP_MS, MAX_FRAME_MS, TANK_SIZE, FEATURES } from '../config.js';
 import { Level } from '../world/level.js';
 import { EnemyBot } from '../tanks/enemybot.js';
 import { ENEMY_TYPES } from '../tanks/enemytypes.js';
 import { intersects } from './collision.js';
 import { simulateBullets } from './combat.js';
 
-// Menüü taustamaailm: esimene tase, kus robotid (mängija-meeskond vs vaenlased) võitlevad omavahel.
-// Ei mõjuta päris mängu: oma tase, oma tankid, oma kuulid, heli on välja lülitatud.
 const ALLY_TYPE = {
-    team: TEAM.PLAYER, spriteSet: 'player', speed: 95, health: 1,
+    team: TEAM.PLAYER, spriteSet: 'player', newSprite: FEATURES.newTankSprites ? 'hero' : null, speed: 95, health: 1,
     shootDelay: [900, 1700], aggression: 0.6,
     bulletColor: '#ffff00', bulletSprite: 'player', fallbackColor: '#00ff00'
 };
@@ -17,11 +15,11 @@ const ALLY_SPAWNS = [{ col: 4, row: 14 }, { col: 10, row: 14 }];
 const MAX_ENEMIES = 4;
 const MAX_ALLIES = 2;
 const SPAWN_EVERY_MS = 1500;
-const RESET_EVERY_MS = 60000;      // taasta kaart, et seinad ei kaoks lõplikult
+const RESET_EVERY_MS = 60000;
 
 export class DemoWorld {
     constructor() {
-        this.silent = true;        // Tank.takeDamage ei mängi heli
+        this.silent = true;
         this.reset();
     }
 
@@ -36,14 +34,12 @@ export class DemoWorld {
         this.needsReset = false;
     }
 
-    // ----- Liides, mida tankid ja plokid kasutavad -----
     get tanks() {
         return [...this.allies, ...this.enemies].filter(t => !t.markedForDeletion);
     }
     onEnemyKilled() {}
     onBaseDestroyed() { this.needsReset = true; }
 
-    // ----- Tsükkel -----
     update(deltaTime) {
         this.accumulator += Math.min(deltaTime, MAX_FRAME_MS);
         while (this.accumulator >= STEP_MS) {

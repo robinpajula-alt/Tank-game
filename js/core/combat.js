@@ -1,9 +1,5 @@
 import { intersects } from './collision.js';
 
-/**
- * Kuulide liikumine ja kokkupõrked. Jagatud Game'i ja menüü taustamaailma (DemoWorld) vahel.
- * world peab pakkuma: bullets, level, tanks.
- */
 export function simulateBullets(world, deltaTime) {
     world.bullets.forEach(bullet => bullet.update(deltaTime));
     resolveBulletClashes(world.bullets);
@@ -11,7 +7,6 @@ export function simulateBullets(world, deltaTime) {
     for (const bullet of world.bullets) {
         if (bullet.markedForDeletion) continue;
 
-        // Plokid: kuul kaob igal juhul, plokk otsustab ise, mis temaga juhtub (polümorfism).
         const hitBlocks = world.level.blocksOverlapping(bullet);
         if (hitBlocks.length > 0) {
             hitBlocks.forEach(block => block.onBulletHit(world, bullet));
@@ -19,7 +14,6 @@ export function simulateBullets(world, deltaTime) {
             continue;
         }
 
-        // Tankid: ainult vastasmeeskond ja ainult esimene tabatu.
         for (const tank of world.tanks) {
             if (tank.team !== bullet.team && intersects(bullet, tank)) {
                 tank.takeDamage(bullet.damage);
@@ -30,7 +24,6 @@ export function simulateBullets(world, deltaTime) {
     }
 }
 
-/** Vastasmeeskondade kuulid kustutavad teineteist. Kasutab läbitud teed, et kiired kuulid ei lendaks läbi. */
 function resolveBulletClashes(bullets) {
     for (let i = 0; i < bullets.length; i++) {
         const a = bullets[i];

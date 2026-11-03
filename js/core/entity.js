@@ -1,4 +1,3 @@
-/** Kõigi mänguobjektide baasklass: asukoht, mõõdud, kustutamise lipp. */
 export class Entity {
     constructor(x, y, width, height) {
         this.x = x;

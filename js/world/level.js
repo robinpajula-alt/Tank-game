@@ -9,11 +9,10 @@ import {
   TILE,
   biomeSpec,
 } from "../config.js";
-import { Brick, Steel, Base, Wall } from "./block.js";
+import { Brick, Steel, Base, Wall, Liquid } from "./block.js";
 import { assets, drawSprite } from "../assets.js";
 import { intersects } from "../core/collision.js";
 
-// Registri-põhine laadimine. split = jaga 4 alamplokiks (16x16), muidu üks 32x32 plokk.
 const TILE_TYPES = {
   [TILE.BRICK]: { split: true, create: (x, y, w, h) => new Brick(x, y, w, h) },
   [TILE.STEEL]: {
@@ -29,9 +28,12 @@ const TILE_TYPES = {
     split: true,
     create: (x, y, w, h, biome, q) => new Wall(x, y, w, h, biome, true, q),
   },
+  [TILE.LIQUID]: {
+    split: false,
+    create: (x, y, w, h, biome) => new Liquid(x, y, w, h, biome),
+  },
 };
 
-/** Üks laetud tase: plokid, maapind, alguspunktid, baasi tugevdamine. */
 export class Level {
   constructor(definition, game) {
     this.definition = definition;
@@ -58,7 +60,6 @@ export class Level {
     this.buildBlocks();
   }
 
-  /** Keskendab suuruse `size` objekti lahtri keskele (ja hoiab ta kaardi sees). */
   cellToPosition({ col, row }, size = TANK_SIZE) {
     const offset = (TILE_SIZE - size) / 2;
     return {
@@ -76,7 +77,6 @@ export class Level {
     };
   }
 
-  // ----- Ehitamine -----
   createCellBlocks(col, row, type) {
     const entry = TILE_TYPES[type];
     if (!entry) return [];
@@ -84,7 +84,7 @@ export class Level {
     const y = row * TILE_SIZE;
     if (!entry.split)
       return [entry.create(x, y, TILE_SIZE, TILE_SIZE, this.biome)];
-    // [dx, dy, nurk] – nurgad päripäeva: 0 üleval vasakul, 1 üleval paremal, 2 all paremal, 3 all vasakul
+
     return [
       [0, 0, 0],
       [HALF_TILE, 0, 1],
@@ -105,7 +105,6 @@ export class Level {
     }
   }
 
-  /** Maapind joonistatakse ÜKS kord offscreen canvasele. */
   renderGround() {
     const canvas = document.createElement("canvas");
     canvas.width = CANVAS_WIDTH;
@@ -113,14 +112,17 @@ export class Level {
     const g = canvas.getContext("2d");
     g.imageSmoothingEnabled = false;
 
-    const img = assets.images.biomes[this.biome].ground;
-    const color = biomeSpec(this.biome).ground.color;
+    const images = assets.images.biomes[this.biome];
+    const spec = biomeSpec(this.biome);
     for (let row = 0; row < GRID_ROWS; row++) {
       for (let col = 0; col < GRID_COLS; col++) {
         const x = col * TILE_SIZE;
         const y = row * TILE_SIZE;
+
+        const ice = this.map[row][col] === TILE.ICE && spec.slick;
+        const img = ice ? images.slick : images.ground;
         if (!drawSprite(g, img, x, y, TILE_SIZE, TILE_SIZE)) {
-          g.fillStyle = color;
+          g.fillStyle = ice ? spec.slick.color : spec.ground.color;
           g.fillRect(x, y, TILE_SIZE, TILE_SIZE);
         }
       }
@@ -128,7 +130,6 @@ export class Level {
     return canvas;
   }
 
-  // ----- Baasi tugevdamine (power-up) -----
   findBaseCell() {
     let base = null;
     this.map.forEach((rowData, row) =>
@@ -167,7 +168,6 @@ export class Level {
     return this.game.tanks.some((tank) => intersects(rect, tank));
   }
 
-  /** Asendab lahtri plokid uue tüübiga (0 = tühjaks). */
   replaceCell(cell, type) {
     const rect = this.cellRect(cell);
     this.blocks = this.blocks.filter((block) => {
@@ -186,7 +186,7 @@ export class Level {
   fortifyBase(durationMs) {
     this.fortifyTimer = durationMs;
     for (const cell of this.guardCells) {
-      if (this.fortifiedCells.has(cell) || this.isCellOccupied(cell)) continue; // tanki sisse ei ehita
+      if (this.fortifiedCells.has(cell) || this.isCellOccupied(cell)) continue;
       this.replaceCell(cell, TILE.STEEL);
       this.fortifiedCells.add(cell);
     }
@@ -197,7 +197,7 @@ export class Level {
       this.fortifyTimer -= deltaTime;
       return;
     }
-    // Aeg läbi: taasta algne sein (kui lahtris seisab tank, proovi uuesti hiljem).
+
     for (const cell of [...this.fortifiedCells]) {
       if (this.isCellOccupied(cell)) continue;
       this.replaceCell(cell, this.map[cell.row][cell.col]);
@@ -205,9 +205,33 @@ export class Level {
     }
   }
 
-  // ----- Päringud (etapis 4 saab sisemuse ruudustikuks, väljastpoolt ei muutu midagi) -----
+  randomFreeCell(avoid = []) {
+    const free = [];
+    for (let row = 1; row < GRID_ROWS; row++) {
+      for (let col = 0; col < GRID_COLS; col++) {
+        const type = this.map[row][col];
+        if (type !== TILE.GROUND && type !== TILE.ICE) continue;
+        const rect = this.cellRect({ col, row });
+        if (this.collidesWithBlocks(rect)) continue;
+        if (this.game.tanks.some((t) => intersects(rect, t))) continue;
+        if (avoid.some((o) => intersects(rect, o))) continue;
+        free.push({ col, row });
+      }
+    }
+    if (free.length === 0) return null;
+    const cell = free[Math.floor(Math.random() * free.length)];
+    return { x: cell.col * TILE_SIZE + HALF_TILE, y: cell.row * TILE_SIZE + HALF_TILE };
+  }
+
+  isOnIce(rect) {
+    const col = Math.floor((rect.x + rect.width / 2) / TILE_SIZE);
+    const row = Math.floor((rect.y + rect.height / 2) / TILE_SIZE);
+    return !!this.map[row] && this.map[row][col] === TILE.ICE;
+  }
+
   blocksOverlapping(rect) {
-    return this.blocks.filter((block) => intersects(rect, block));
+
+    return this.blocks.filter((block) => block.stopsBullets && intersects(rect, block));
   }
 
   collidesWithBlocks(rect) {

@@ -1,20 +1,17 @@
 import { Entity } from "../core/entity.js";
 import { assets, drawSprite } from "../assets.js";
 import { biomeSpec } from "../config.js";
+import { FIRE_COLORS, SPARK_COLORS } from "../core/effects.js";
 
-/**
- * Plokkide baasklass. Iga plokk otsustab ise, mis temaga juhtub, kui kuul pihta saab.
- * Uus plokitüüp = uus alamklass + rida level.js-i registris. Game.js-i ei puutu.
- */
 export class Block extends Entity {
-  imageKey = null; // võti assets.images.blocks all
+  imageKey = null;
   fallbackColor = "#ff00ff";
+  stopsBullets = true;
 
   getImage() {
     return assets.images.blocks[this.imageKey];
   }
 
-  /** Vaikimisi (teras): ei juhtu midagi, kuul kaob. */
   onBulletHit(game, bullet) {}
 
   draw(ctx) {
@@ -27,10 +24,6 @@ export class Block extends Entity {
   }
 }
 
-/**
- * Läbimatu sein: bioomi seina tumedam variant (assets.js teeb toonitud pildid),
- * või bioomi oma `steel` pildid, kui need on config.js-is antud.
- */
 export class Steel extends Block {
   constructor(x, y, width, height, biomeName, quadrant = 0) {
     super(x, y, width, height);
@@ -43,23 +36,33 @@ export class Steel extends Block {
   getImage() {
     return this.image;
   }
+
+  onBulletHit(game, bullet) {
+    if (game.effects && bullet)
+      game.effects.burst(bullet.x + bullet.width / 2, bullet.y + bullet.height / 2, SPARK_COLORS, 4, 60, 2);
+  }
 }
 
-/** Kõrbetäht. Kui kuul tabab, on mäng läbi. */
 export class Base extends Block {
   imageKey = "base";
   fallbackColor = "#00bfff";
 
   onBulletHit(game) {
     this.markedForDeletion = true;
+    if (game.effects) {
+      game.effects.burst(this.x + this.width / 2, this.y + this.height / 2, FIRE_COLORS, 60, 180, 4);
+      game.effects.shake(700, 7);
+    }
     game.onBaseDestroyed();
   }
 }
 
-/** Hävib ühe kuuliga. */
 export class DestructibleBlock extends Block {
-  onBulletHit() {
+  onBulletHit(game) {
     this.markedForDeletion = true;
+
+    if (game && game.effects)
+      game.effects.burst(this.x + this.width / 2, this.y + this.height / 2, [this.fallbackColor, "#00000055"], 6, 70, 2);
   }
 }
 
@@ -68,17 +71,12 @@ export class Brick extends DestructibleBlock {
   fallbackColor = "#8B4513";
 }
 
-/**
- * Bioomi sein: pilt ja värv tulevad bioomi andmetest (config.js BIOMES).
- * quadrant (0 üleval vasakul, 1 üleval paremal, 2 all paremal, 3 all vasakul) valib nurgapildi,
- * kui bioomil on seinal 4 pilti (nt jää).
- */
 export class Wall extends DestructibleBlock {
   constructor(x, y, width, height, biomeName, cracked = false, quadrant = 0) {
     super(x, y, width, height);
     const images = assets.images.biomes[biomeName];
     const spec = biomeSpec(biomeName);
-    const useCracked = cracked && spec.cracked; // puudub -> tavaline sein
+    const useCracked = cracked && spec.cracked;
     const image = useCracked ? images.cracked : images.wall;
     this.image = Array.isArray(image) ? image[quadrant] : image;
     this.fallbackColor = (useCracked ? spec.cracked : spec.wall).color;
@@ -86,5 +84,27 @@ export class Wall extends DestructibleBlock {
 
   getImage() {
     return this.image;
+  }
+}
+
+export class Liquid extends Block {
+  stopsBullets = false;
+
+  constructor(x, y, width, height, biomeName) {
+    super(x, y, width, height);
+    const images = assets.images.biomes[biomeName].liquid;
+    this.frames = Array.isArray(images) ? images : images ? [images] : [];
+    const spec = biomeSpec(biomeName).liquid;
+    this.fallbackColor = spec ? spec.color : "#2b5d8a";
+    this.frameMs = (spec && spec.frameMs) || 250;
+    const col = Math.round(x / width);
+    const row = Math.round(y / height);
+    this.frameOffset = spec && spec.stagger ? col * 3 + row * 2 : 0;
+  }
+
+  getImage() {
+    if (this.frames.length === 0) return null;
+    const tick = Math.floor(performance.now() / this.frameMs) + this.frameOffset;
+    return this.frames[tick % this.frames.length];
   }
 }

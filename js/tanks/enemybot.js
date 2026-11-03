@@ -1,31 +1,41 @@
 import { Tank } from './tank.js';
+import { assets } from '../assets.js';
 import {
-    TEAM, TANK_SIZE, DIRECTIONS, ENEMY_DIRECTION_CHANGE_MS, ENEMY_REACTION_MS
+    TEAM, TANK_SIZE, DIRECTIONS, ENEMY_DIRECTION_CHANGE_MS, ENEMY_REACTION_MS, FEATURES
 } from '../config.js';
 
-// Juhuslik suund, kallutus baasi poole (alla).
+function resolveSprite(game, type) {
+    if (FEATURES.newTankSprites) {
+        const biome = game.level && game.level.biome;
+        const options = [type.newSprite, type.biomeSprite && biome && `${biome}_${type.biomeSprite}`];
+        for (const set of options) {
+            if (set && assets.images.tanks[set]) return { spriteSet: set, filter: null };
+        }
+    }
+    return { spriteSet: type.spriteSet, filter: type.filter ?? null };
+}
+
 const DIRECTION_WEIGHTS = { down: 50, left: 25, right: 15, up: 10 };
 
-/**
- * Robot-tank. Vaenlasena ründab mängijat ja baasi; type.team = TEAM.PLAYER korral
- * on see sama loogikaga "liitlane" (kasutab menüü taustamaailm).
- */
 export class EnemyBot extends Tank {
     constructor(game, x, y, type) {
+        const sprite = resolveSprite(game, type);
         super(game, x, y, {
             team: type.team ?? TEAM.ENEMY,
-            spriteSet: type.spriteSet,
+            spriteSet: sprite.spriteSet,
             speed: type.speed,
             health: type.health,
             size: type.size ?? TANK_SIZE,
             bulletColor: type.bulletColor ?? '#ff4500',
             bulletSprite: type.bulletSprite ?? 'enemy',
             fallbackColor: type.fallbackColor,
-            filter: type.filter ?? null
-            // shootSound jääb tahtlikult määramata: robotite lask on hääletu
+            filter: sprite.filter
+
         });
         this.shootDelayRange = type.shootDelay;
         this.aggression = type.aggression ?? 0;
+        this.ignoresBase = !!type.ignoresBase;
+        this.scoreValue = type.score ?? 100;
         this.direction = 'down';
         this.moveTimer = 0;
         this.isBoss = false;
@@ -39,7 +49,6 @@ export class EnemyBot extends Tank {
         return min + Math.random() * (max - min);
     }
 
-    /** Vastasmeeskonna tankid (vaenlasele: mängija). */
     get opponents() {
         return this.game.tanks.filter(t => t.team !== this.team);
     }
@@ -53,7 +62,6 @@ export class EnemyBot extends Tank {
             this.moveTimer = 0;
         }
 
-        // Näeb vastast otse ees: tulistab peagi.
         if (this.isFacingOpponent()) this.shootTimer = Math.min(this.shootTimer, ENEMY_REACTION_MS);
 
         if (this.tryShoot()) {
@@ -62,9 +70,13 @@ export class EnemyBot extends Tank {
         }
     }
 
-    /** Kas mõni vastane on selle tanki toru ees (samal joonel)? Seinu ei arvesta. */
     isFacingOpponent() {
-        return this.opponents.some(p => {
+
+        const center = this.game.level.baseCenter;
+        const near = center && Math.hypot(center.x - this.x - this.width / 2, center.y - this.y - this.height / 2) < 160;
+        const base = this.team === TEAM.ENEMY && !this.ignoresBase && near && center;
+        const targets = base ? [...this.opponents, { x: base.x - 16, y: base.y - 16, width: 32, height: 32 }] : this.opponents;
+        return targets.some(p => {
             if (this.direction === 'up' || this.direction === 'down') {
                 const aligned = p.x < this.x + this.width && p.x + p.width > this.x;
                 return aligned && (this.direction === 'down' ? p.y > this.y : p.y < this.y);
@@ -79,12 +91,12 @@ export class EnemyBot extends Tank {
         this.chooseRandomDirection();
     }
 
-    /** Lähim vastane või (vaenlasel) baas, 50/50. Tagastab false, kui sihtmärki pole. */
     steerTowardTarget() {
         const cx = this.x + this.width / 2;
         const cy = this.y + this.height / 2;
         const opponents = this.opponents;
-        const base = this.team === TEAM.ENEMY ? this.game.level.baseCenter : null;
+
+        const base = this.team === TEAM.ENEMY && !this.ignoresBase ? this.game.level.baseCenter : null;
 
         let target = null;
         if (base && (opponents.length === 0 || Math.random() < 0.5)) {
@@ -102,11 +114,10 @@ export class EnemyBot extends Tank {
         const vertical = dy > 0 ? 'down' : 'up';
         const options = Math.abs(dx) > Math.abs(dy) ? [horizontal, vertical] : [vertical, horizontal];
 
-        this.direction = options.find(d => d !== this.direction);   // alati teistsugune kui praegune
+        this.direction = options.find(d => d !== this.direction);
         return true;
     }
 
-    /** Valib alati teistsuguse suuna kui praegune. */
     chooseRandomDirection() {
         const options = Object.keys(DIRECTIONS).filter(d => d !== this.direction);
         const total = options.reduce((sum, d) => sum + DIRECTION_WEIGHTS[d], 0);

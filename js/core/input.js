@@ -7,7 +7,6 @@ const DIRECTION_CODES = {
 const FIRE_CODE = 'Space';
 const GAME_CODES = new Set([...Object.keys(DIRECTION_CODES), FIRE_CODE, 'KeyP', 'Escape']);
 
-/** Kogu klaviatuurisisend ühes kohas. Kasutab e.code (sõltumatu klaviatuuripaigutusest). */
 export class InputHandler {
     constructor(target = window) {
         this.target = target;
@@ -15,7 +14,7 @@ export class InputHandler {
         this.pressed = new Set();
 
         this.onKeyDown = (e) => {
-            // Nuppudel (menüü) jätame Space/Enter tavapärase käitumise alles.
+
             const onButton = typeof HTMLButtonElement !== 'undefined' && e.target instanceof HTMLButtonElement;
             if (GAME_CODES.has(e.code) && !onButton) e.preventDefault();
             if (e.repeat) return;

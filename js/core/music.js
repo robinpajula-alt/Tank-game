@@ -1,11 +1,8 @@
-/**
- * Taustamuusika. Failinimed tulevad config.js-ist (MUSIC, MUSIC_FOLDER).
- * Üks lugu korraga, loop. Puuduv fail ei tee viga: muusikat lihtsalt pole (konsooli tuleb hoiatus).
- */
 export class MusicPlayer {
   constructor(files, folder, volume) {
     this.files = files;
     this.folder = folder;
+    this.baseVolume = volume;
     this.volume = volume;
     this.tracks = {};
     this.failed = new Set();
@@ -13,7 +10,6 @@ export class MusicPlayer {
     this.muted = false;
     this.paused = false;
 
-    // Brauserid lubavad heli alles pärast esimest klõpsu või klahvivajutust: proovime siis uuesti.
     const unlock = () => this.tryPlay();
     window.addEventListener("pointerdown", unlock);
     window.addEventListener("keydown", unlock);
@@ -36,7 +32,11 @@ export class MusicPlayer {
     return this.tracks[key];
   }
 
-  /** Mängi lugu `key` (nt "menu" või bioomi nimi). Sama lugu ei alustata uuesti. */
+  setVolume(factor) {
+    this.volume = this.baseVolume * factor;
+    Object.values(this.tracks).forEach((track) => (track.volume = this.volume));
+  }
+
   play(key) {
     if (key === this.currentKey) {
       this.tryPlay();

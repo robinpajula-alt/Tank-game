@@ -1,20 +1,31 @@
 import { BIOMES, STEEL_TINT } from "./config.js";
 
 const DIRECTION_NAMES = ["up", "down", "left", "right"];
-const FRAMES_PER_DIRECTION = 4; // 0 = seisab, 1..3 = liikumine
-const TANK_SPRITE_SETS = ["player", "enemy1"]; // uus komplekt = lisa nimi siia + kaust assets/images/<nimi>/
+const FRAMES_PER_DIRECTION = 4;
+const TANK_SPRITE_SETS = ["player", "enemy1"];
+
+const BIOME_TANKS = ["desert", "canyon", "swamp", "tundra", "volcano"].flatMap((b) =>
+  ["basic", "fast", "armored"].map((t) => `${b}_${t}`),
+);
+const TANK_SHEETS = ["hero", "boss", ...BIOME_TANKS];
 
 const BLOCK_FILES = {
   brick: "brick.png",
-  base: "base.png",
+  base: "tiles/base.png",
 };
+const QUIET_BLOCKS = new Set(["brick"]);
 
-// Kuulide pildid (assets/images/ suhtes). Puuduv pilt = tavaline värviline kuul, hoiatust ei tule.
-// Joonista kuul SUUNAGA ÜLES, 10 x 12 px: mäng pöörab selle ise.
 const BULLET_FILES = {
   player: "bullets/player_bullet.png",
   enemy: "bullets/enemy_bullet.png",
   boss: "bullets/boss_bullet.png",
+};
+
+const POWERUP_FILES = {
+  speed: "powerups/speed.png",
+  shield: "powerups/shield.png",
+  freeze: "powerups/freeze.png",
+  life: "powerups/life.png",
 };
 
 const SOUND_FILES = {
@@ -62,18 +73,22 @@ function loadTankSprites(setName) {
 }
 
 export const assets = {
-  images: { tanks: {}, blocks: {}, biomes: {}, bullets: {} },
+  images: { tanks: {}, blocks: {}, biomes: {}, bullets: {}, powerups: {} },
   sounds: {},
 };
 
 for (const setName of TANK_SPRITE_SETS)
   assets.images.tanks[setName] = loadTankSprites(setName);
+const tankSheets = {};
+for (const setName of TANK_SHEETS)
+  tankSheets[setName] = loadImage(`assets/images/tanks/${setName}.png`);
 for (const [key, file] of Object.entries(BLOCK_FILES))
-  assets.images.blocks[key] = loadImage(`assets/images/${file}`);
+  assets.images.blocks[key] = loadImage(`assets/images/${file}`, QUIET_BLOCKS.has(key));
 for (const [key, file] of Object.entries(BULLET_FILES))
   assets.images.bullets[key] = loadImage(`assets/images/${file}`, true);
+for (const [key, file] of Object.entries(POWERUP_FILES))
+  assets.images.powerups[key] = loadImage(`assets/images/${file}`, true);
 
-/** { file } -> üks pilt, { files: [...] } -> pildimassiiv (nurgapildid). */
 function loadSpec(spec, quiet) {
   if (spec.files)
     return spec.files.map((file) => loadImage(`assets/images/${file}`, quiet));
@@ -81,19 +96,20 @@ function loadSpec(spec, quiet) {
 }
 
 for (const [name, biome] of Object.entries(BIOMES)) {
-  if (biome.from) continue; // tuletatud bioom: tehakse loadAssets()-is
+  if (biome.from) continue;
   const quiet = !!biome.optional;
   assets.images.biomes[name] = {
     ground: loadSpec(biome.ground, quiet),
     wall: loadSpec(biome.wall, quiet),
     cracked: biome.cracked ? loadSpec(biome.cracked, quiet) : null,
-    steel: biome.steel ? loadSpec(biome.steel, quiet) : null, // valikuline: oma pildid terasele
+    steel: biome.steel ? loadSpec(biome.steel, quiet) : null,
+    liquid: biome.liquid ? loadSpec(biome.liquid, quiet) : null,
+    slick: biome.slick ? loadSpec(biome.slick, quiet) : null,
   };
 }
 for (const [key, src] of Object.entries(SOUND_FILES))
   assets.sounds[key] = loadSound(src);
 
-/** Teeb pildist toonitud koopia (üks kord laadimisel). Kui pilt pole laetud, tagastab originaali. */
 function tintImage(img, filter) {
   if (!filter || !img || !(img.complete && img.naturalWidth > 0))
     return Promise.resolve(img);
@@ -101,7 +117,7 @@ function tintImage(img, filter) {
   canvas.width = img.naturalWidth;
   canvas.height = img.naturalHeight;
   const ctx = canvas.getContext("2d");
-  ctx.filter = filter; // Safaris puudub: siis jääb pilt toonimata
+  ctx.filter = filter;
   ctx.drawImage(img, 0, 0);
   return new Promise((resolve) => {
     const tinted = new Image();
@@ -130,14 +146,43 @@ async function buildDerivedBiomes() {
       ground: await tintSpec(source.ground, biome.tint),
       wall: await tintSpec(source.wall, biome.tint),
       cracked: await tintSpec(source.cracked, biome.tint),
+      liquid: await tintSpec(source.liquid, biome.tint),
+      slick: await tintSpec(source.slick, biome.tint),
     };
   }
 }
 
-/** Läbimatu sein = bioomi seina tumedam variant (kui bioomil pole oma `steel` pilte). */
 async function buildSteel() {
   for (const set of Object.values(assets.images.biomes)) {
     if (!set.steel) set.steel = await tintSpec(set.wall, STEEL_TINT);
+  }
+}
+
+function sliceImage(sheet, sx, sy, w, h) {
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  canvas.getContext("2d").drawImage(sheet, sx, sy, w, h, 0, 0, w, h);
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = canvas.toDataURL();
+  });
+}
+
+async function buildTankSheets() {
+  for (const [setName, sheet] of Object.entries(tankSheets)) {
+    if (!(sheet.complete && sheet.naturalWidth > 0)) continue;
+    const w = sheet.naturalWidth / FRAMES_PER_DIRECTION;
+    const h = sheet.naturalHeight / DIRECTION_NAMES.length;
+    const sprites = {};
+    for (const [row, dir] of DIRECTION_NAMES.entries()) {
+      sprites[dir] = await Promise.all(
+        [0, 1, 2, 3].map((i) => sliceImage(sheet, i * w, row * h, w, h)),
+      );
+    }
+    assets.images.tanks[setName] = sprites;
   }
 }
 
@@ -145,9 +190,9 @@ export async function loadAssets() {
   await Promise.all(pendingImages);
   await buildDerivedBiomes();
   await buildSteel();
+  await buildTankSheets();
 }
 
-/** Ainus koht, kus on img.complete && naturalWidth > 0 kontroll. Tagastab true, kui joonistas. */
 export function drawSprite(ctx, img, x, y, width, height) {
   if (img && img.complete && img.naturalWidth > 0) {
     ctx.drawImage(img, Math.round(x), Math.round(y), width, height);
@@ -156,10 +201,16 @@ export function drawSprite(ctx, img, x, y, width, height) {
   return false;
 }
 
+let sfxVolume = 1;
+
+export function setSfxVolume(value) {
+  sfxVolume = value;
+}
+
 export function playSound(name) {
   const base = assets.sounds[name];
-  if (!base) return;
+  if (!base || sfxVolume <= 0) return;
   const sound = base.cloneNode();
-  sound.volume = base.volume;
+  sound.volume = base.volume * sfxVolume;
   sound.play().catch(() => {});
 }

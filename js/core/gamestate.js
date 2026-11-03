@@ -1,7 +1,8 @@
 export const GameState = Object.freeze({
-    MENU: 'menu',          // peamenüü
-    STORY: 'story',        // lugukaart (taseme sissejuhatus / lõpp)
+    MENU: 'menu',
+    STORY: 'story',
     PLAYING: 'playing',
     PAUSED: 'paused',
-    GAME_OVER: 'gameOver'
+    GAME_OVER: 'gameOver',
+    CUTSCENE: 'cutscene'
 });

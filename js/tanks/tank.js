@@ -2,12 +2,11 @@ import { Entity } from '../core/entity.js';
 import { intersects } from '../core/collision.js';
 import { Bullet } from '../bullet.js';
 import { assets, drawSprite, playSound } from '../assets.js';
-import { TANK_SIZE, CANVAS_WIDTH, CANVAS_HEIGHT, DIRECTIONS, ASSIST_PIXELS, SPEED_BOOST_FACTOR } from '../config.js';
+import { TANK_SIZE, CANVAS_WIDTH, CANVAS_HEIGHT, DIRECTIONS, ASSIST_PIXELS, SPEED_BOOST_FACTOR, FEATURES } from '../config.js';
+import { FIRE_COLORS } from '../core/effects.js';
 
-/**
- * Tanki baasklass. Alamklass defineerib think(dt) (otsused) ja vajadusel die() / createBullets().
- * update() on sama kõigile: taimerid -> think -> animatsioon.
- */
+const SHIELD_COLORS = { ring: '#3fd0ff', spark: '#bff6ff', glow: '#3fd0ff' };
+
 export class Tank extends Entity {
     constructor(game, x, y, options) {
         const {
@@ -19,22 +18,22 @@ export class Tank extends Entity {
         this.game = game;
         this.team = team;
         this.spriteSet = spriteSet;
-        this.speed = speed;                    // pikslit sekundis
+        this.speed = speed;
         this.maxHealth = health;
         this.health = health;
-        this.shootCooldown = shootCooldown;    // ms
+        this.shootCooldown = shootCooldown;
         this.bulletColor = bulletColor;
         this.fallbackColor = fallbackColor;
-        this.bulletSprite = bulletSprite;      // võti assets.images.bullets all
-        this.shootSound = shootSound;          // null = lask on hääletu (vaenlased)
-        this.filter = filter;                  // canvas filter (värvitoon), nt 'hue-rotate(90deg)'
+        this.bulletSprite = bulletSprite;
+        this.shootSound = shootSound;
+        this.filter = filter;
 
         this.direction = 'up';
         this.isMoving = false;
-        this.frameX = 0;                       // 0 = seisab, 1..3 = liikumine
+        this.frameX = 0;
         this.animationTimer = 0;
         this.shootTimer = 0;
-        this.invulnerableTimer = 0;            // respawn ja kilp
+        this.invulnerableTimer = 0;
         this.speedBoostTimer = 0;
         this.hitFlashTimer = 0;
     }
@@ -56,17 +55,14 @@ export class Tank extends Entity {
         this.updateAnimation(deltaTime);
     }
 
-    /** Alamklass: otsusta suund, liigu, tulista. */
     think(deltaTime) {}
 
-    // ----- Liikumine -----
     moveForward(deltaTime) {
         const v = DIRECTIONS[this.direction];
         const distance = this.currentSpeed * deltaTime / 1000;
         return this.move(v.x * distance, v.y * distance);
     }
 
-    /** Tagastab true ainult siis, kui tank TEGELIKULT liikus (ka nurgast mööda libisemine loeb). */
     move(dx, dy) {
         const old = { x: this.x, y: this.y, width: this.width, height: this.height };
         const target = this.clampToWorld(old.x + dx, old.y + dy);
@@ -80,10 +76,6 @@ export class Tank extends Entity {
         return this.slideAround(dx, dy, old);
     }
 
-    /**
-     * Nurgaabi: kui ees on takistus, aga ASSIST_PIXELS ulatuses küljel on vaba tee,
-     * nihutab tanki sinnapoole. Tänu sellele saab kitsastesse vahedesse ilma pikslitäpse sihita.
-     */
     slideAround(dx, dy, old) {
         const horizontal = dx !== 0;
         const step = Math.abs(horizontal ? dx : dy);
@@ -119,17 +111,12 @@ export class Tank extends Entity {
         };
     }
 
-    /**
-     * Teine tank blokeerib ainult siis, kui me ei kattunud temaga juba enne liikumist
-     * (muidu jääks kellegi peale sattunud tank igaveseks kinni).
-     */
     isBlockedAt(rect, oldRect) {
         if (this.game.level.collidesWithBlocks(rect)) return true;
         return this.game.tanks.some(other =>
             other !== this && intersects(rect, other) && !intersects(oldRect, other));
     }
 
-    // ----- Lahing -----
     tryShoot() {
         if (this.shootTimer > 0) return false;
         this.shootTimer = this.shootCooldown;
@@ -138,17 +125,16 @@ export class Tank extends Entity {
         return true;
     }
 
-    /** Alamklass võib tagastada mitu kuuli (boss). */
     createBullets() {
         return [new Bullet(this)];
     }
 
-    /** Tagastab true, kui kahju sai kätte (kilbi all mitte). */
     takeDamage(amount) {
         if (this.isInvulnerable) return false;
         this.health -= amount;
         this.hitFlashTimer = 120;
-        if (!this.game.silent) playSound('explosion');   // menüü taustamaailm on hääletu
+        if (!this.game.silent) playSound('explosion');
+        this.spawnHitEffects(this.health <= 0);
         if (this.health <= 0) {
             this.health = 0;
             this.die();
@@ -160,7 +146,22 @@ export class Tank extends Entity {
         this.markedForDeletion = true;
     }
 
-    // ----- Animatsioon ja joonistus -----
+    spawnHitEffects(died) {
+        const fx = this.game.effects;
+        if (!fx) return;
+        const cx = this.x + this.width / 2;
+        const cy = this.y + this.height / 2;
+        if (!died) {
+            fx.burst(cx, cy, ['#ffffff', '#ffd24a'], 6, 70, 2);
+            if (this.isBoss) fx.shake(90, 2);
+            return;
+        }
+        const big = this.width > 40;
+        fx.burst(cx, cy, FIRE_COLORS, big ? 48 : 20, big ? 160 : 110, big ? 4 : 3);
+        if (big) fx.shake(600, 6);
+        else if (this === this.game.player) fx.shake(260, 4);
+    }
+
     updateAnimation(deltaTime) {
         if (!this.isMoving) {
             this.frameX = 0;
@@ -188,11 +189,53 @@ export class Tank extends Entity {
 
     drawShield(ctx) {
         if (this.invulnerableTimer < 1000 && Math.floor(this.invulnerableTimer / 100) % 2 === 1) return;
-        ctx.strokeStyle = '#4fc3ff';
+        if (FEATURES.fancyShield) { this.drawForceField(ctx); return; }
+        this.drawRing(ctx, '#4fc3ff');
+    }
+
+    drawRing(ctx, color) {
+        ctx.strokeStyle = color;
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(this.x + this.width / 2, this.y + this.height / 2, this.width / 2 + 3, 0, Math.PI * 2);
         ctx.stroke();
+    }
+
+    drawForceField(ctx, timeMs = this.invulnerableTimer, colors = SHIELD_COLORS) {
+        const P = 2;
+        const cx = this.x + this.width / 2;
+        const cy = this.y + this.height / 2;
+        const r = this.width / 2 + 5;
+        const spin = timeMs / 260;
+        const pulse = 0.55 + 0.25 * Math.sin(timeMs / 120);
+        const STEPS = 36;
+        ctx.save();
+        for (let i = 0; i < STEPS; i++) {
+            const a = (i / STEPS) * Math.PI * 2;
+
+            const rr = r - 1.5 * Math.abs(Math.cos(3 * a));
+            const px = Math.round((cx + Math.cos(a) * rr) / P) * P;
+            const py = Math.round((cy + Math.sin(a) * rr) / P) * P;
+            let spark = 0;
+            for (let k = 0; k < 3; k++) {
+                const d = Math.abs(Math.atan2(Math.sin(a - spin - k * 2.094), Math.cos(a - spin - k * 2.094)));
+                spark = Math.max(spark, 1 - d / 0.45);
+            }
+            if (spark > 0) {
+                ctx.globalAlpha = 0.6 + 0.4 * spark;
+                ctx.fillStyle = spark > 0.6 ? '#ffffff' : colors.spark;
+            } else {
+                ctx.globalAlpha = pulse;
+                ctx.fillStyle = colors.ring;
+            }
+            ctx.fillRect(px - 1, py - 1, P, P);
+
+            ctx.globalAlpha = pulse * 0.35;
+            ctx.fillStyle = colors.glow;
+            ctx.fillRect(Math.round((cx + Math.cos(a) * (rr - 3)) / P) * P - 1,
+                         Math.round((cy + Math.sin(a) * (rr - 3)) / P) * P - 1, P, P);
+        }
+        ctx.restore();
     }
 
     drawFallback(ctx) {

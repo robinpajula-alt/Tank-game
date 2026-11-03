@@ -1,40 +1,56 @@
-// ===== Ruudustik ja mõõtmed =====
 export const TILE_SIZE = 32;
 export const HALF_TILE = TILE_SIZE / 2;
 export const GRID_COLS = 15;
 export const GRID_ROWS = 15;
-export const CANVAS_WIDTH = GRID_COLS * TILE_SIZE; // 480
-export const CANVAS_HEIGHT = GRID_ROWS * TILE_SIZE; // 480
+export const CANVAS_WIDTH = GRID_COLS * TILE_SIZE;
+export const CANVAS_HEIGHT = GRID_ROWS * TILE_SIZE;
 export const TANK_SIZE = TILE_SIZE - 4;
 
-// ===== Ajastus (fikseeritud ajasamm: sama kiirus igal monitoril) =====
 export const STEP_MS = 1000 / 60;
 export const MAX_FRAME_MS = 100;
 
-// ===== Liikumine ja lahing =====
-export const PLAYER_SPEED = 120; // pikslit sekundis
+export const PLAYER_SPEED = 120;
 export const BULLET_SPEED = 480;
 export const BULLET_LONG = 12;
 export const BULLET_SHORT = 10;
-export const ASSIST_PIXELS = 12; // nurgast mööda libisemise abi (mida suurem, seda andestavam)
+export const ASSIST_PIXELS = 12;
 export const PLAYER_SHOOT_COOLDOWN = 400;
 
-// ===== Mängureeglid =====
 export const PLAYER_START_LIVES = 3;
+
+export const LEVEL_CLEAR_BONUS_LIVES = 1;
+
+export const SCORE_DEATH_PENALTY = 500;
+export const SCORE_LEVEL_BONUS = 500;
+
+export const CHECKPOINT_AFTER_LEVEL = 3;
 export const MAX_LIVES = 5;
 export const RESPAWN_INVULNERABILITY_MS = 2000;
 export const ENEMY_SPAWN_INTERVAL_MS = 5000;
 export const FIRST_SPAWN_DELAY_MS = 1000;
 export const ENEMY_DIRECTION_CHANGE_MS = 2000;
-export const ENEMY_REACTION_MS = 600; // vaenlane tulistab nii kiiresti, kui näeb sind otse ees
+export const ENEMY_REACTION_MS = 600;
 
-// ===== Power-upid =====
-export const POWERUP_DROP_CHANCE = 0.2;
+export const POWERUP_DROP_CHANCE = 0.12;
+export const POWERUP_SPAWN_MS = [15000, 22000];
+export const POWERUP_MAX_ON_MAP = 2;
 export const POWERUP_LIFETIME_MS = 12000;
 export const SPEED_BOOST_FACTOR = 1.6;
 
-// Arendaja klahvid (1–5 tase, N järgmine, K tapa kõik, G surematus). Lülita enne avaldamist VÄLJA.
 export const DEBUG = true;
+
+export const FEATURES = Object.freeze({
+  explosions: true,
+  screenShake: true,
+  fancyShield: true,
+  newTankSprites: true,
+  weather: true,
+  slipperyIce: true,
+  finaleCutscene: true,
+  rockfall: true,
+});
+
+export const ICE_ACCELERATION = 240;
 
 export const TEAM = Object.freeze({ PLAYER: "player", ENEMY: "enemy" });
 
@@ -45,9 +61,6 @@ export const DIRECTIONS = Object.freeze({
   right: { x: 1, y: 0 },
 });
 
-// ===== Kaardikoodid =====
-// 0 = tühi, 1 = tellis, 2 = teras, 3 = Kõrbetäht (baas),
-// 4 = bioomi sein, 5 = bioomi mõranenud sein (nende pilt sõltub bioomist)
 export const TILE = Object.freeze({
   GROUND: 0,
   BRICK: 1,
@@ -55,35 +68,24 @@ export const TILE = Object.freeze({
   BASE: 3,
   WALL: 4,
   WALL_CRACKED: 5,
+  LIQUID: 6,
+  ICE: 7,
 });
 
-// Läbimatu sein (kaardikood 2) näeb välja nagu bioomi sein, aga tumedam. Toon siin (CSS filter).
-// Soovi korral saab bioomile anda oma pildid: steel: { files: [...] } samamoodi nagu wall.
 export const STEEL_TINT = "grayscale(0.5) brightness(0.55) contrast(1.15)";
 
-// ===== Bioomid =====
-// Uus bioom = uus kirje + pildid assets/images/ kausta. Puuduva pildi asemel kasutatakse värvi.
-// optional: true => puuduva pildi kohta ei tule konsooli hoiatust.
+const fourFiles = (prefix) => [0, 1, 2, 3].map((i) => `${prefix}${i}.png`);
+
 export const BIOMES = {
-  // Faili tee on kausta assets/images/ suhtes.
-  // ground / wall / cracked: { file, color }  -> üks pilt (venitatakse igale alamplokile)
-  //                       või { files: [4 pilti], color } -> iga alamplokk saab oma nurgapildi,
-  //                          järjekord päripäeva: 0 üleval vasakul, 1 üleval paremal, 2 all paremal, 3 all vasakul.
-  // cracked võib ära jätta: siis kasutatakse mõranenud seina asemel tavalist seina.
-  // optional: true => puuduvate piltide kohta ei tule konsooli hoiatust (kasutatakse varuvärve).
+
   desert: {
+    titleColor: "#ffd24a",
     ground: { file: "tiles/desert/sand.png", color: "#d2b48c" },
-    wall: {
-      files: [
-        "tiles/desert/sprite_sand0.png",
-        "tiles/desert/sprite_sand1.png",
-        "tiles/desert/sprite_sand2.png",
-        "tiles/desert/sprite_sand3.png",
-      ],
-      color: "#e0a96d",
-    },
+    wall: { files: fourFiles("tiles/desert/sand_block"), color: "#ca9300" },
+    cracked: { files: fourFiles("tiles/desert/sand_block_cracked"), color: "#b88600" },
   },
   tundra: {
+    titleColor: "#bff0ff",
     ground: { file: "tiles/ice/ice.png", color: "#dcecf5" },
     wall: {
       files: [
@@ -94,39 +96,40 @@ export const BIOMES = {
       ],
       color: "#9ec9e0",
     },
+    slick: { file: "tiles/ice/slick_ice.png", color: "#7fc4ea" },
   },
 
-  // Tuletatud bioomid: kasutavad teise bioomi pilte, aga värvitooniga (CSS filter süntaks).
-  // from: bioom, mille pilte kasutada (peab olema päris bioom, mitte tuletatud).
-  // tint: hue-rotate = värvitoon, saturate = küllastus, brightness = heledus.
-  // Kui tahad hiljem OMA pildid, asenda kirje tavalise (ground / wall) kirjega nagu desert ja tundra.
   canyon: {
-    from: "desert",
-    tint: "hue-rotate(-25deg) saturate(1.2) brightness(0.85)",
+    titleColor: "#ff7a4a",
+    ground: { file: "tiles/canyon/canyon_ground.png", color: "#b9653e" },
+    wall: { files: fourFiles("tiles/canyon/canyon_block"), color: "#b5512f" },
+    cracked: { files: fourFiles("tiles/canyon/canyon_block_cracked"), color: "#a3492b" },
   },
   swamp: {
-    from: "tundra",
-    tint: "hue-rotate(-85deg) saturate(0.8) brightness(0.75)",
+    titleColor: "#a6e05a",
+    ground: { file: "tiles/swamp/swamp_ground.png", color: "#4a4128" },
+    wall: { files: fourFiles("tiles/swamp/swamp_block"), color: "#66786b" },
+    cracked: { files: fourFiles("tiles/swamp/swamp_block_cracked"), color: "#58695c" },
+    liquid: { files: fourFiles("tiles/swamp/sprite_swamp_water"), color: "#2f5e4a", frameMs: 300, stagger: true },
   },
   volcano: {
-    from: "desert",
-    tint: "hue-rotate(-30deg) saturate(1.6) brightness(0.45)",
+    titleColor: "#ff5a1a",
+    ground: { file: "tiles/volcano/volcano_ground.png", color: "#3a3134" },
+    wall: { files: fourFiles("tiles/volcano/volcano_block"), color: "#3b3135" },
+    cracked: { files: fourFiles("tiles/volcano/volcano_block_cracked"), color: "#2a2124" },
+    liquid: { files: fourFiles("tiles/volcano/lava"), color: "#e04a06", frameMs: 250, stagger: true },
   },
+
 };
 
-/** Bioomi andmed, kus `from` on lahendatud (pildi- ja värviandmed tulevad algbioomilt). */
 export function biomeSpec(name) {
   const biome = BIOMES[name];
   if (!biome) throw new Error(`Tundmatu bioom: "${name}" (config.js BIOMES)`);
   return biome.from ? { ...BIOMES[biome.from], ...biome } : biome;
 }
 
-// ===== Muusika =====
-// KIRJUTA SIIA OMA FAILINIMED. Failid asuvad kaustas MUSIC_FOLDER.
-// Võtmed: "menu" ning iga bioomi nimi. null = selles kohas muusikat pole.
-// Muusika vahetub, kui bioom muutub (sama bioomi järjestikustel tasemetel jätkub sama lugu).
 export const MUSIC_FOLDER = "assets/music/";
-export const MUSIC_VOLUME = 0.35; // 0..1
+export const MUSIC_VOLUME = 0.35;
 export const MUSIC = {
   menu: "menu.wav",
   desert: "desert.wav",
@@ -136,16 +139,14 @@ export const MUSIC = {
   volcano: "volcano.wav",
 };
 
-// ===== Tasemed =====
-// enemies: { tüüp: arv } (tüübid enemytypes.js-ist). Boss tuleb alati esimesena.
 export const levels = [
   {
-    name: "Kõrbe värav",
+    name: "The Desert Gate",
     biome: "desert",
     intro:
-      "Sajandeid on Kõrbetäht hoidnud liivamere rahus. Nüüd on röövlipealik Karak saatnud oma soomustatud bandiidid seda omastama. Sina oled viimane tankikaitsja. Ära lase ühelgi vaenlasel kivini jõuda!",
+      "For a thousand years the Desert Star has kept the desert calm. Tonight the warlord Karak sent his raiders to steal it. You're the last tank left to guard it.",
     outro:
-      "Esimene rünnak on tõrjutud, aga Täht on nõrgenenud. Legend räägib Vulkaani Altarist, kus kivi saaks jõudu taastada. Karaki bandiidid jälitavad sind igal sammul.",
+      "You held off the first attack, but the Star is getting weaker. Legend says the Volcano Altar can restore its power, so you head out across the desert with Karak's raiders close behind.",
     playerStart: { col: 4, row: 14 },
     enemySpawns: [
       { col: 0, row: 0 },
@@ -156,29 +157,30 @@ export const levels = [
     maxEnemiesOnScreen: 4,
     map: [
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 4, 4, 0, 4, 4, 0, 5, 0, 4, 4, 0, 4, 4, 0],
-      [0, 4, 5, 0, 4, 4, 0, 4, 0, 4, 4, 0, 5, 4, 0],
-      [0, 4, 4, 0, 4, 4, 0, 4, 0, 4, 4, 0, 4, 4, 0],
-      [0, 5, 4, 0, 4, 5, 0, 4, 0, 5, 4, 0, 4, 5, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 4, 4, 0, 4, 4, 0, 5, 0, 4, 4, 0, 4, 4, 0],
-      [0, 5, 4, 0, 4, 4, 0, 4, 0, 4, 4, 0, 4, 5, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [4, 4, 0, 4, 5, 4, 4, 0, 4, 4, 5, 4, 0, 4, 4],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 4, 5, 0, 4, 4, 0, 0, 0, 4, 4, 0, 5, 4, 0],
-      [0, 4, 4, 0, 4, 5, 0, 5, 0, 5, 4, 0, 4, 4, 0],
-      [0, 5, 4, 0, 4, 4, 4, 4, 4, 4, 4, 0, 4, 5, 0],
+      [0, 0, 4, 4, 0, 0, 0, 0, 0, 0, 0, 5, 4, 0, 0],
+      [0, 4, 4, 5, 4, 0, 0, 4, 0, 0, 4, 4, 4, 4, 0],
+      [0, 0, 4, 4, 0, 0, 4, 4, 4, 0, 0, 4, 4, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0],
+      [4, 4, 0, 0, 0, 4, 0, 0, 0, 0, 4, 4, 0, 0, 4],
+      [5, 4, 4, 0, 4, 4, 5, 0, 0, 0, 4, 5, 4, 0, 0],
+      [0, 0, 0, 0, 0, 4, 4, 0, 4, 0, 0, 0, 0, 0, 0],
+      [0, 0, 4, 0, 0, 0, 0, 0, 4, 4, 0, 0, 4, 4, 0],
+      [0, 4, 4, 5, 0, 0, 0, 0, 4, 5, 4, 0, 4, 5, 0],
+      [0, 0, 4, 0, 0, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 4, 4, 5, 0, 0, 4, 4, 0, 0, 4, 4],
+      [4, 5, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 4, 5],
+      [4, 4, 0, 0, 0, 0, 4, 4, 4, 0, 0, 0, 0, 0, 0],
       [0, 0, 0, 0, 0, 0, 4, 3, 4, 0, 0, 0, 0, 0, 0],
     ],
   },
   {
-    name: "Punane kanjon",
+    name: "The Red Canyon",
     biome: "canyon",
+    hazard: "rockfall",
     intro:
-      "Kanjoni kitsad käigud sobivad varitsusteks ja röövlid on õppinud kiiremini sõitma. Langenud vaenlased jätavad mõnikord maha abivahendeid. Korja need üles!",
+      "The road to the volcano runs through the Red Canyon. Karak's raiders know these narrow passages well, and the cliffs above don't look very stable.",
     outro:
-      "Kanjon jääb selja taha. Ees on udune soo, kuhu Karak on saatnud oma soomustatud brigaadi.",
+      "You made it through the canyon. Next up is a foggy swamp where Karak has sent his armored tanks.",
     playerStart: { col: 4, row: 14 },
     enemySpawns: [
       { col: 0, row: 0 },
@@ -206,12 +208,12 @@ export const levels = [
     ],
   },
   {
-    name: "Udune soo",
+    name: "The Misty Marsh",
     biome: "swamp",
     intro:
-      "Soos ei näe kaugele ja soomustatud tankid ei vea kergelt alla. Nendel on kaks elu, mõrane sein ei pea samuti kaua vastu.",
+      "The swamp is quiet, foggy and full of deep water. Somewhere in the mist, Karak's heavy tanks are waiting.",
     outro:
-      "Soo on selja taga. Ees laiub külmunud lagendik, kus tuul kannab liiva asemel lund.",
+      "You climb out of the swamp and spot a nomad camp in the distance. Maybe they can help.",
     playerStart: { col: 4, row: 14 },
     enemySpawns: [
       { col: 0, row: 0 },
@@ -222,29 +224,29 @@ export const levels = [
     maxEnemiesOnScreen: 5,
     map: [
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 4, 0, 5, 0, 4, 4, 0, 4, 4, 0, 5, 0, 4, 0],
-      [0, 4, 0, 0, 0, 0, 5, 0, 5, 0, 0, 0, 0, 4, 0],
-      [0, 5, 4, 0, 4, 0, 0, 0, 0, 0, 4, 0, 4, 5, 0],
-      [0, 0, 0, 0, 4, 5, 0, 2, 0, 5, 4, 0, 0, 0, 0],
-      [4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 4],
-      [0, 0, 0, 5, 4, 0, 4, 0, 4, 0, 4, 5, 0, 0, 0],
-      [0, 2, 0, 0, 0, 0, 4, 0, 4, 0, 0, 0, 0, 2, 0],
-      [0, 0, 0, 4, 5, 0, 0, 0, 0, 0, 5, 4, 0, 0, 0],
-      [0, 4, 4, 0, 0, 0, 2, 0, 2, 0, 0, 0, 4, 4, 0],
-      [0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0],
-      [0, 5, 0, 4, 4, 0, 5, 0, 5, 0, 4, 4, 0, 5, 0],
-      [0, 4, 0, 0, 0, 0, 4, 0, 4, 0, 0, 0, 0, 4, 0],
-      [0, 0, 0, 4, 0, 0, 4, 4, 4, 0, 0, 4, 0, 0, 0],
+      [0, 4, 5, 0, 0, 6, 6, 0, 6, 6, 0, 0, 5, 4, 0],
+      [0, 4, 0, 0, 6, 6, 6, 0, 6, 6, 6, 0, 0, 4, 0],
+      [0, 0, 0, 6, 6, 6, 0, 0, 0, 6, 6, 6, 0, 0, 0],
+      [6, 6, 0, 0, 6, 0, 0, 4, 0, 0, 6, 0, 0, 6, 6],
+      [6, 6, 6, 0, 0, 0, 5, 4, 5, 0, 0, 0, 6, 6, 6],
+      [0, 6, 0, 0, 4, 0, 0, 0, 0, 0, 4, 0, 0, 6, 0],
+      [0, 0, 0, 4, 5, 0, 6, 6, 6, 0, 5, 4, 0, 0, 0],
+      [0, 2, 0, 0, 0, 6, 6, 6, 6, 6, 0, 0, 0, 2, 0],
+      [0, 0, 0, 6, 0, 0, 6, 6, 6, 0, 0, 6, 0, 0, 0],
+      [4, 5, 0, 6, 6, 0, 0, 0, 0, 0, 6, 6, 0, 5, 4],
+      [0, 0, 0, 0, 6, 0, 4, 0, 4, 0, 6, 0, 0, 0, 0],
+      [0, 6, 6, 0, 0, 0, 5, 0, 5, 0, 0, 0, 6, 6, 0],
+      [0, 6, 6, 0, 4, 0, 4, 4, 4, 0, 4, 0, 6, 6, 0],
       [0, 0, 0, 0, 0, 0, 4, 3, 4, 0, 0, 0, 0, 0, 0],
     ],
   },
   {
-    name: "Külmunud lagendik",
+    name: "The Frozen Plain",
     biome: "tundra",
     intro:
-      "Külmas muutuvad bandiidid ägedamaks ja neid on rohkem. Terasmüürid annavad kaitset, aga ka vaenlasele peavarju. Mõtle, kuhu sa sõidad.",
+      "Past the camp the land freezes over. It's a long, cold drive to the volcano, and the raiders are already waiting on the ice.",
     outro:
-      "Silmapiiril hõõgub vulkaan. Seal, mustade kivide taga, ootab Karak oma raudses kindluses.",
+      "You can see the volcano now. Karak is waiting in his fortress at the bottom of it.",
     playerStart: { col: 4, row: 14 },
     enemySpawns: [
       { col: 0, row: 0 },
@@ -254,30 +256,32 @@ export const levels = [
     enemies: { basic: 8, fast: 8, armored: 12 },
     maxEnemiesOnScreen: 6,
     map: [
-      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 2, 2, 0, 0, 4, 4, 0, 4, 4, 0, 0, 2, 2, 0],
-      [0, 0, 0, 0, 4, 5, 0, 0, 0, 5, 4, 0, 0, 0, 0],
-      [4, 4, 0, 2, 0, 0, 0, 4, 0, 0, 0, 2, 0, 4, 4],
-      [0, 5, 0, 2, 0, 4, 0, 0, 0, 4, 0, 2, 0, 5, 0],
-      [0, 0, 0, 0, 0, 4, 5, 0, 5, 4, 0, 0, 0, 0, 0],
-      [0, 4, 4, 0, 0, 0, 0, 2, 0, 0, 0, 0, 4, 4, 0],
-      [0, 0, 5, 0, 2, 0, 0, 0, 0, 0, 2, 0, 5, 0, 0],
-      [4, 0, 0, 0, 2, 0, 4, 0, 4, 0, 2, 0, 0, 0, 4],
-      [4, 5, 0, 0, 0, 0, 4, 0, 4, 0, 0, 0, 0, 5, 4],
-      [0, 0, 0, 4, 4, 0, 0, 0, 0, 0, 4, 4, 0, 0, 0],
-      [0, 2, 0, 0, 0, 0, 5, 4, 5, 0, 0, 0, 0, 2, 0],
-      [0, 2, 0, 4, 0, 0, 0, 0, 0, 0, 4, 0, 0, 2, 0],
+      [0, 0, 0, 0, 0, 0, 7, 7, 7, 0, 0, 0, 0, 0, 0],
+      [0, 2, 2, 0, 0, 4, 4, 7, 4, 4, 0, 0, 2, 2, 0],
+      [7, 7, 7, 7, 4, 5, 7, 7, 7, 5, 4, 7, 7, 7, 7],
+      [4, 4, 7, 2, 7, 7, 7, 4, 7, 7, 7, 2, 7, 4, 4],
+      [7, 5, 7, 2, 7, 4, 7, 7, 7, 4, 7, 2, 7, 5, 7],
+      [7, 7, 7, 7, 7, 4, 5, 7, 5, 4, 7, 7, 7, 7, 7],
+      [7, 4, 4, 7, 7, 7, 7, 2, 7, 7, 7, 7, 4, 4, 7],
+      [7, 7, 5, 7, 2, 7, 7, 7, 7, 7, 2, 7, 5, 7, 7],
+      [4, 7, 7, 7, 2, 7, 4, 7, 4, 7, 2, 7, 7, 7, 4],
+      [4, 5, 7, 7, 7, 7, 4, 7, 4, 7, 7, 7, 7, 5, 4],
+      [7, 7, 7, 4, 4, 7, 7, 7, 7, 7, 4, 4, 7, 7, 7],
+      [7, 2, 7, 7, 7, 7, 5, 4, 5, 7, 7, 7, 7, 2, 7],
+      [0, 2, 7, 4, 7, 7, 7, 7, 7, 7, 4, 7, 7, 2, 0],
       [0, 0, 0, 5, 0, 0, 4, 4, 4, 0, 5, 0, 0, 0, 0],
       [0, 0, 0, 0, 0, 0, 4, 3, 4, 0, 0, 0, 0, 0, 0],
     ],
   },
   {
-    name: "Karaki kindlus",
+    name: "Karak's Fortress",
     biome: "volcano",
+    bossLast: true,
+    bossSpawn: { col: 7, row: 7 },
     intro:
-      "Vulkaani jalamil seisab Karaki raudne kindlus. Pealik ise sõidab lahingusse. Tema soomus peab vastu palju lööke ja mida vähem tal on jõudu, seda raevukamalt ta tulistab. Kaitse kivi, kuni Karak on langenud!",
+      "This is Karak's fortress. His guards will try to stop you first, and then Karak will come out himself. Nothing seems to get through his red force field.",
     outro:
-      "Karak langes ja tema bandiidid hajusid tuhasse. Kõrbetäht sädeleb Vulkaani Altaril taas täies jõus ja kõrb on jälle turvaline. Tänu sinule. – LÕPP –",
+      "Karak is defeated and his raiders run off into the ash. The Desert Star shines at full power on the Volcano Altar again, and the desert is safe. Thanks for playing!",
     playerStart: { col: 4, row: 14 },
     enemySpawns: [
       { col: 0, row: 0 },
@@ -289,18 +293,18 @@ export const levels = [
     map: [
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0],
-      [0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0],
+      [0, 0, 2, 6, 6, 0, 0, 0, 0, 0, 6, 6, 2, 0, 0],
+      [0, 0, 0, 6, 6, 0, 0, 0, 0, 0, 6, 6, 0, 0, 0],
+      [6, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 6],
+      [6, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 6],
       [0, 0, 0, 0, 4, 4, 0, 0, 0, 4, 4, 0, 0, 0, 0],
-      [0, 0, 0, 0, 4, 5, 0, 0, 0, 5, 4, 0, 0, 0, 0],
+      [0, 0, 0, 0, 5, 4, 0, 0, 0, 4, 5, 0, 0, 0, 0],
+      [2, 2, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 2, 2],
+      [6, 6, 0, 0, 0, 0, 6, 6, 6, 0, 0, 0, 0, 6, 6],
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0],
-      [0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 4, 4, 0, 0, 0, 0, 0, 4, 4, 0, 0, 0],
-      [0, 0, 0, 5, 0, 0, 4, 4, 4, 0, 0, 5, 0, 0, 0],
+      [0, 0, 4, 4, 0, 0, 0, 0, 0, 0, 0, 4, 4, 0, 0],
+      [0, 0, 5, 0, 0, 0, 2, 2, 2, 0, 0, 0, 5, 0, 0],
       [0, 0, 0, 0, 0, 0, 4, 3, 4, 0, 0, 0, 0, 0, 0],
     ],
   },
