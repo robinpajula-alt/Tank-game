@@ -37,7 +37,7 @@ export const POWERUP_MAX_ON_MAP = 2;
 export const POWERUP_LIFETIME_MS = 12000;
 export const SPEED_BOOST_FACTOR = 1.6;
 
-export const DEBUG = true;
+export const DEBUG = false;
 
 export const FEATURES = Object.freeze({
   explosions: true,
@@ -77,12 +77,14 @@ export const STEEL_TINT = "grayscale(0.5) brightness(0.55) contrast(1.15)";
 const fourFiles = (prefix) => [0, 1, 2, 3].map((i) => `${prefix}${i}.png`);
 
 export const BIOMES = {
-
   desert: {
     titleColor: "#ffd24a",
     ground: { file: "tiles/desert/sand.png", color: "#d2b48c" },
     wall: { files: fourFiles("tiles/desert/sand_block"), color: "#ca9300" },
-    cracked: { files: fourFiles("tiles/desert/sand_block_cracked"), color: "#b88600" },
+    cracked: {
+      files: fourFiles("tiles/desert/sand_block_cracked"),
+      color: "#b88600",
+    },
   },
   tundra: {
     titleColor: "#bff0ff",
@@ -103,23 +105,41 @@ export const BIOMES = {
     titleColor: "#ff7a4a",
     ground: { file: "tiles/canyon/canyon_ground.png", color: "#b9653e" },
     wall: { files: fourFiles("tiles/canyon/canyon_block"), color: "#b5512f" },
-    cracked: { files: fourFiles("tiles/canyon/canyon_block_cracked"), color: "#a3492b" },
+    cracked: {
+      files: fourFiles("tiles/canyon/canyon_block_cracked"),
+      color: "#a3492b",
+    },
   },
   swamp: {
     titleColor: "#a6e05a",
     ground: { file: "tiles/swamp/swamp_ground.png", color: "#4a4128" },
     wall: { files: fourFiles("tiles/swamp/swamp_block"), color: "#66786b" },
-    cracked: { files: fourFiles("tiles/swamp/swamp_block_cracked"), color: "#58695c" },
-    liquid: { files: fourFiles("tiles/swamp/sprite_swamp_water"), color: "#2f5e4a", frameMs: 300, stagger: true },
+    cracked: {
+      files: fourFiles("tiles/swamp/swamp_block_cracked"),
+      color: "#58695c",
+    },
+    liquid: {
+      files: fourFiles("tiles/swamp/sprite_swamp_water"),
+      color: "#2f5e4a",
+      frameMs: 300,
+      stagger: true,
+    },
   },
   volcano: {
     titleColor: "#ff5a1a",
     ground: { file: "tiles/volcano/volcano_ground.png", color: "#3a3134" },
     wall: { files: fourFiles("tiles/volcano/volcano_block"), color: "#3b3135" },
-    cracked: { files: fourFiles("tiles/volcano/volcano_block_cracked"), color: "#2a2124" },
-    liquid: { files: fourFiles("tiles/volcano/lava"), color: "#e04a06", frameMs: 250, stagger: true },
+    cracked: {
+      files: fourFiles("tiles/volcano/volcano_block_cracked"),
+      color: "#2a2124",
+    },
+    liquid: {
+      files: fourFiles("tiles/volcano/lava"),
+      color: "#e04a06",
+      frameMs: 250,
+      stagger: true,
+    },
   },
-
 };
 
 export function biomeSpec(name) {
