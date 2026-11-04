@@ -37,7 +37,7 @@ export const POWERUP_MAX_ON_MAP = 2;
 export const POWERUP_LIFETIME_MS = 12000;
 export const SPEED_BOOST_FACTOR = 1.6;
 
-export const DEBUG = false;
+export const DEBUG = true;
 
 export const FEATURES = Object.freeze({
   explosions: true,
